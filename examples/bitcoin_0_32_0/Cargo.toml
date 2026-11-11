@@ -1,0 +1,14 @@
+[package]
+name = "bip377-example-bitcoin-0-32-0"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+# Pinned to the oldest supported release, the floor bip377 declares.
+[dependencies]
+bitcoin = "=0.32.0"
+bip377 = { path = "../..", default-features = false, features = ["bitcoin_0_32"] }
+
+[[bin]]
+name = "roundtrip"
+path = "../shared/roundtrip.rs"
