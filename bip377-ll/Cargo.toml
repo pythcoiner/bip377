@@ -8,6 +8,8 @@ license = "MIT"
 authors = ["pythcoiner <pythcoiner@wizardsardine.com>"]
 repository = "https://github.com/pythcoiner/bip377"
 documentation = "https://docs.rs/bip377-ll"
+# The tests load their vectors from the repo-level `test_vectors/`, outside the crate.
+include = ["Cargo.toml", "README.md", "src/**/*.rs", "include/*.h", "examples/*.c"]
 publish = true
 
 [lib]
