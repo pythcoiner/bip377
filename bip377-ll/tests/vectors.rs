@@ -1,8 +1,8 @@
 mod common;
 
 use bip377_ll::{
-    self as protocol, decode::Error, reader, request, response, types::Fingerprint, Invalid,
-    Message,
+    self as protocol, Invalid, Message, decode::Error, reader, request, response,
+    types::Fingerprint,
 };
 use serde_json::Value;
 
