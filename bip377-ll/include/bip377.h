@@ -41,6 +41,8 @@ extern "C" {
 
 /* Closed: the decoder rejects any other value. */
 enum bip377_message_type {
+    /* only in an error response whose id is {0x00, 0x00} */
+    BIP377_MESSAGE_UNREADABLE_REQUEST = 0x00,
     BIP377_MESSAGE_GET_INFO = 0x01, /* no request body: the body union is unused */
     BIP377_MESSAGE_GET_KEYS = 0x02,
     BIP377_MESSAGE_REGISTER_DESCRIPTOR = 0x03,
@@ -170,6 +172,7 @@ enum bip377_status {
     BIP377_ERR_SCAN_PATH_AND_KEY = 210,
     BIP377_ERR_NO_SCAN = 211,
     BIP377_ERR_UNPAIRED_SESSION = 212,
+    BIP377_ERR_UNREADABLE_REQUEST_TYPE = 213,
 
     BIP377_ERR_PATH_TOO_LONG = 300,
     BIP377_ERR_PATCH_TOO_LARGE = 301,
@@ -200,7 +203,8 @@ enum bip377_status {
     BIP377_ERR_TAPROOT_SIGNATURE_LENGTH = 506,
     BIP377_ERR_ZERO_MAX_INPUTS = 507,
     BIP377_ERR_REVERSED_EXPRESSION_RANGE = 508,
-    BIP377_ERR_SESSION_REF_WITHOUT_ID = 509
+    BIP377_ERR_SESSION_REF_WITHOUT_ID = 509,
+    BIP377_ERR_UNREADABLE_REQUEST_ID = 510
 };
 
 /* A borrowed run of items. A NULL ptr means the field is absent, which is distinct
