@@ -109,7 +109,7 @@ enum bip377_release_flag {
 };
 
 /* Open: a value outside this list passes through as an unknown code, and must sit in
- * 0x0f..=0xfe to encode. */
+ * 0x11..=0xfe to encode. */
 enum bip377_response_error {
     BIP377_RESPONSE_ERROR_USER_DECLINED = 0x01,
     BIP377_RESPONSE_ERROR_UNSUPPORTED_VERSION = 0x02,
@@ -125,6 +125,8 @@ enum bip377_response_error {
     BIP377_RESPONSE_ERROR_PRIVATE_KEY_EXPORT_REFUSED = 0x0c,
     BIP377_RESPONSE_ERROR_MUSIG_SESSION = 0x0d,
     BIP377_RESPONSE_ERROR_ALREADY_REGISTERED = 0x0e,
+    BIP377_RESPONSE_ERROR_UNSUPPORTED_OPERATION = 0x0f,
+    BIP377_RESPONSE_ERROR_NETWORK_MISMATCH = 0x10,
     BIP377_RESPONSE_ERROR_VENDOR = 0xff
 };
 
