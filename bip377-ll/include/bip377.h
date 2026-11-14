@@ -48,7 +48,8 @@ enum bip377_message_type {
     BIP377_MESSAGE_REGISTER_DESCRIPTOR = 0x03,
     BIP377_MESSAGE_ADDRESS_VERIFICATION = 0x04,
     BIP377_MESSAGE_SIGNING = 0x05,
-    BIP377_MESSAGE_NONCE_PREPARATION = 0x06
+    BIP377_MESSAGE_NONCE_PREPARATION = 0x06,
+    BIP377_MESSAGE_UNREGISTER_DESCRIPTOR = 0x07
 };
 
 enum bip377_capability {
@@ -298,6 +299,10 @@ typedef struct {
 
 typedef struct {
     const char *descriptor_alias;
+} bip377_unregister_descriptor;
+
+typedef struct {
+    const char *descriptor_alias;
     bip377_path derivation_path;
     const char *address;                      /* NULL when absent */
     const bip377_descriptor_body *descriptor; /* NULL when absent */
@@ -331,6 +336,7 @@ typedef union {
     bip377_verify_address verify_address;
     bip377_sign sign;
     bip377_prepare_nonces prepare_nonces;
+    bip377_unregister_descriptor unregister_descriptor;
 } bip377_request_body;
 
 typedef struct {
@@ -374,6 +380,11 @@ typedef struct {
     int8_t stored;       /* 0, 1 or BIP377_ABSENT_BOOL */
     bip377_bytes proof;
 } bip377_registration;
+
+/* The alias is no longer registered once this is sent. */
+typedef struct {
+    const char *descriptor_alias;
+} bip377_unregistered;
 
 typedef struct {
     const char *uri; /* BIP-321 payment URI for the verified address */
@@ -482,6 +493,7 @@ typedef union {
     bip377_address_uri address_uri;
     bip377_signed signed_body;
     bip377_nonces_prepared nonces_prepared;
+    bip377_unregistered unregistered;
     bip377_info info;
     bip377_error_body error;
 } bip377_response_body;
