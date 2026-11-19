@@ -85,7 +85,7 @@ fn main() {
     let response = Response {
         id: ID,
         body: response::Body::Keys(response::Keys {
-            keys: vec![Active::to_ll_xpub(&xpub), Active::to_ll_xpriv(&xpriv)],
+            keys: vec![Active::to_ll_xpub(&xpub)],
             fingerprint: Active::to_ll_fingerprint(&fingerprint),
             vendor: "example".to_string(),
             model: "roundtrip".to_string(),
@@ -106,10 +106,9 @@ fn main() {
     let response::Body::Keys(keys) = decoded.body else {
         panic!("not a keys response");
     };
-    let [public, private] = keys.keys.as_slice() else {
-        panic!("not two keys");
+    let [public] = keys.keys.as_slice() else {
+        panic!("not a single key");
     };
     assert_eq!(Active::from_ll_xpub(public), Ok(xpub));
-    assert_eq!(Active::from_ll_xpriv(private), Ok(xpriv));
     assert_eq!(Active::from_ll_fingerprint(&keys.fingerprint), fingerprint);
 }

@@ -3,7 +3,7 @@
 use bip377_ll::{
     MAX_DESCRIPTOR_ALIAS, Message, MessageType, Request, RequestId, Response, SignResponseKind,
     decode, encode_request, encode_response,
-    request::{self, DescriptorBody, KeyKind, Scan, SpKeys},
+    request::{self, DescriptorBody, Scan, SpKeys},
     response::{
         self, Capabilities, ErrorBody, FirmwareVersion, Info, Networks, ReleaseFlag,
         SignatureEntry, SpScope, State,
@@ -134,7 +134,7 @@ impl Builder<'_> {
             MessageType::UnreadableRequest => unreachable!("message_type never draws it"),
             MessageType::GetInfo => request::Body::GetInfo,
             MessageType::GetKeys => request::Body::GetKeys(request::GetKeys {
-                keys: self.vec(Self::key_request),
+                keys: self.vec(Self::path),
             }),
             MessageType::RegisterDescriptor => {
                 request::Body::RegisterDescriptor(request::RegisterDescriptor {
@@ -173,17 +173,6 @@ impl Builder<'_> {
             }
         };
         Request { id, body }
-    }
-
-    fn key_request(&mut self) -> request::KeyRequest {
-        request::KeyRequest {
-            derivation_path: self.path(),
-            kind: if self.bool() {
-                KeyKind::Private
-            } else {
-                KeyKind::Public
-            },
-        }
     }
 
     fn descriptor(&mut self) -> request::Descriptor {
@@ -318,7 +307,7 @@ impl Builder<'_> {
     }
 
     fn error(&mut self) -> response::Error {
-        match self.u8() % 18 {
+        match self.u8() % 17 {
             0 => response::Error::UserDeclined,
             1 => response::Error::UnsupportedVersion,
             2 => response::Error::MalformedRequest,
@@ -330,12 +319,11 @@ impl Builder<'_> {
             8 => response::Error::NothingToSign,
             9 => response::Error::InvalidPsbt,
             10 => response::Error::InternalError,
-            11 => response::Error::PrivateKeyExportRefused,
-            12 => response::Error::MusigSession,
-            13 => response::Error::AlreadyRegistered,
-            14 => response::Error::UnsupportedOperation,
-            15 => response::Error::NetworkMismatch,
-            16 => response::Error::Vendor,
+            11 => response::Error::MusigSession,
+            12 => response::Error::AlreadyRegistered,
+            13 => response::Error::UnsupportedOperation,
+            14 => response::Error::NetworkMismatch,
+            15 => response::Error::Vendor,
             _ => response::Error::Unknown(self.u8()),
         }
     }

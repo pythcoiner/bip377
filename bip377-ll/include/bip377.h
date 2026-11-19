@@ -81,12 +81,6 @@ enum bip377_network {
 };
 
 /* Closed: the decoder rejects any other value. */
-enum bip377_key_kind {
-    BIP377_KEY_PUBLIC = 0x00,
-    BIP377_KEY_PRIVATE = 0x01
-};
-
-/* Closed: the decoder rejects any other value. */
 enum bip377_descriptor_form {
     BIP377_DESCRIPTOR_BIP380 = 0x01,
     BIP377_DESCRIPTOR_BIP388 = 0x02,
@@ -119,7 +113,7 @@ enum bip377_release_flag {
 };
 
 /* Open: a value outside this list passes through as an unknown code, and must sit in
- * 0x11..=0xfe to encode. */
+ * 0x10..=0xfe to encode. */
 enum bip377_response_error {
     BIP377_RESPONSE_ERROR_USER_DECLINED = 0x01,
     BIP377_RESPONSE_ERROR_UNSUPPORTED_VERSION = 0x02,
@@ -132,11 +126,10 @@ enum bip377_response_error {
     BIP377_RESPONSE_ERROR_NOTHING_TO_SIGN = 0x09,
     BIP377_RESPONSE_ERROR_INVALID_PSBT = 0x0a,
     BIP377_RESPONSE_ERROR_INTERNAL = 0x0b,
-    BIP377_RESPONSE_ERROR_PRIVATE_KEY_EXPORT_REFUSED = 0x0c,
-    BIP377_RESPONSE_ERROR_MUSIG_SESSION = 0x0d,
-    BIP377_RESPONSE_ERROR_ALREADY_REGISTERED = 0x0e,
-    BIP377_RESPONSE_ERROR_UNSUPPORTED_OPERATION = 0x0f,
-    BIP377_RESPONSE_ERROR_NETWORK_MISMATCH = 0x10,
+    BIP377_RESPONSE_ERROR_MUSIG_SESSION = 0x0c,
+    BIP377_RESPONSE_ERROR_ALREADY_REGISTERED = 0x0d,
+    BIP377_RESPONSE_ERROR_UNSUPPORTED_OPERATION = 0x0e,
+    BIP377_RESPONSE_ERROR_NETWORK_MISMATCH = 0x0f,
     BIP377_RESPONSE_ERROR_VENDOR = 0xff
 };
 
@@ -174,7 +167,6 @@ enum bip377_status {
     BIP377_ERR_ERROR_STATUS_ON_REQUEST = 203,
     BIP377_ERR_UNKNOWN_DESCRIPTOR_FORM = 204,
     BIP377_ERR_UNKNOWN_SIGN_RESPONSE_KIND = 206,
-    BIP377_ERR_UNKNOWN_KEY_KIND = 207,
     BIP377_ERR_SIGNATURE_LENGTH = 208,
     BIP377_ERR_GLOBAL_INPUT_INDEX = 209,
     BIP377_ERR_SCAN_PATH_AND_KEY = 210,
@@ -229,21 +221,16 @@ typedef struct {
 } bip377_path;
 
 typedef struct {
-    bip377_path derivation_path;
-    uint8_t kind; /* BIP377_KEY_* */
-} bip377_key_request;
-
-typedef struct {
-    const bip377_key_request *ptr;
+    const bip377_path *ptr;
     size_t len;
-} bip377_key_request_list;
+} bip377_path_list;
 
 typedef struct {
     const char *const *ptr;
     size_t len;
 } bip377_string_list;
 
-/* BIP-32 serialization of an extended public or private key. */
+/* BIP-32 serialization of an extended public key. */
 typedef struct {
     uint8_t bytes[BIP377_EXTENDED_KEY_LEN];
 } bip377_extended_key;
@@ -296,7 +283,7 @@ typedef struct {
 } bip377_descriptor_list;
 
 typedef struct {
-    bip377_key_request_list keys;
+    bip377_path_list keys; /* each from the master key */
 } bip377_get_keys;
 
 typedef struct {

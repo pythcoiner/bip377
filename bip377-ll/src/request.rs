@@ -1,7 +1,7 @@
 use alloc::{string::String, vec::Vec};
 
 use crate::{
-    Invalid, MessageType, SignResponseKind, decode,
+    Invalid, MessageType, SignResponseKind,
     types::{DerivationPath, Fingerprint, SecretKey},
 };
 
@@ -38,46 +38,7 @@ impl From<&Body> for MessageType {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GetKeys {
-    pub keys: Vec<KeyRequest>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct KeyRequest {
-    pub derivation_path: DerivationPath,
-    pub kind: KeyKind,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum KeyKind {
-    Public,
-    Private,
-}
-
-impl KeyKind {
-    pub fn value(self) -> u8 {
-        self.into()
-    }
-}
-
-impl From<KeyKind> for u8 {
-    fn from(kind: KeyKind) -> Self {
-        match kind {
-            KeyKind::Public => 0x00,
-            KeyKind::Private => 0x01,
-        }
-    }
-}
-
-impl TryFrom<u8> for KeyKind {
-    type Error = decode::Error;
-
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        match value {
-            0x00 => Ok(Self::Public),
-            0x01 => Ok(Self::Private),
-            _ => Err(decode::Error::UnknownKeyKind(value)),
-        }
-    }
+    pub keys: Vec<DerivationPath>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

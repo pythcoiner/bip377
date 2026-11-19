@@ -10,11 +10,10 @@ use core::{
 
 use bip377_ll::ffi::types::{
     AddressUri, Bip388, Buf, Bytes, Descriptor, DescriptorBody, DescriptorValue, Ecdsa, ErrorBody,
-    FirmwareVersion, GetKeys, Info, KeyRequest, Keys, List, MusigPartialSig, MusigPubNonce,
-    NoncesPrepared, Path, PrepareNonces, RegisterDescriptor, Registration, Request, RequestBody,
-    Response, ResponseBody, ScanValue, Sign, Signature, SignatureValue, Signed, SignedValue,
-    SpDleqProof, SpEcdhShare, SpKeys, TapKey, TapScript, UnregisterDescriptor, Unregistered,
-    VerifyAddress,
+    FirmwareVersion, GetKeys, Info, Keys, List, MusigPartialSig, MusigPubNonce, NoncesPrepared,
+    Path, PrepareNonces, RegisterDescriptor, Registration, Request, RequestBody, Response,
+    ResponseBody, ScanValue, Sign, Signature, SignatureValue, Signed, SignedValue, SpDleqProof,
+    SpEcdhShare, SpKeys, TapKey, TapScript, UnregisterDescriptor, Unregistered, VerifyAddress,
 };
 
 macro_rules! check {
@@ -31,8 +30,7 @@ fn the_c_mirror_matches_the_header() {
     check! {
         Bytes => 16, 8;
         Path => 16, 8;
-        KeyRequest => 24, 8;
-        List<KeyRequest> => 16, 8;
+        List<Path> => 16, 8;
         List<*const c_char> => 16, 8;
         List<[u8; 78]> => 16, 8;
         Bip388 => 24, 8;

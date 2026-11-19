@@ -262,16 +262,7 @@ unsafe fn text(ptr: *const c_char) -> String {
 fn get_keys_request_view() {
     unsafe {
         let request = request(request::Body::GetKeys(request::GetKeys {
-            keys: vec![
-                request::KeyRequest {
-                    derivation_path: path(),
-                    kind: request::KeyKind::Public,
-                },
-                request::KeyRequest {
-                    derivation_path: DerivationPath(vec![]),
-                    kind: request::KeyKind::Private,
-                },
-            ],
+            keys: vec![path(), DerivationPath(vec![])],
         }));
         let view = view(&request);
         assert_eq!((*view).id, ID);
@@ -279,13 +270,8 @@ fn get_keys_request_view() {
 
         let keys = (*view).body.get_keys.keys.as_slice();
         assert_eq!(keys.len(), 2);
-        assert_eq!(
-            keys[0].derivation_path.as_slice(),
-            &[0x8000_0030, 0x8000_0000, 7]
-        );
-        assert_eq!(keys[0].kind, request::KeyKind::Public.value());
-        assert_eq!(keys[1].derivation_path.len, 0);
-        assert_eq!(keys[1].kind, request::KeyKind::Private.value());
+        assert_eq!(keys[0].as_slice(), &[0x8000_0030, 0x8000_0000, 7]);
+        assert_eq!(keys[1].len, 0);
         bip377_request_free(view);
     }
 }
@@ -1148,10 +1134,7 @@ fn decode_rejects_a_response_blob() {
 fn decode_reports_the_codec_error() {
     unsafe {
         let bytes = encode_request(&request(request::Body::GetKeys(request::GetKeys {
-            keys: vec![request::KeyRequest {
-                derivation_path: path(),
-                kind: request::KeyKind::Public,
-            }],
+            keys: vec![path()],
         })))
         .unwrap();
         assert_eq!(

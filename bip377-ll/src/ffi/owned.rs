@@ -57,7 +57,7 @@ struct Keep {
     strings: Vec<CString>,
     bytes: Vec<Vec<u8>>,
     paths: Vec<Vec<u32>>,
-    key_request_lists: Vec<Vec<types::KeyRequest>>,
+    path_lists: Vec<Vec<types::Path>>,
     key_lists: Vec<Vec<*const c_char>>,
     descriptor_lists: Vec<Vec<types::Descriptor>>,
     // C holds a pointer to each body, so it must not move when the list grows
@@ -70,7 +70,7 @@ impl Keep {
         Ok(match body {
             request::Body::GetKeys(body) => types::RequestBody {
                 get_keys: types::GetKeys {
-                    keys: self.key_request_list(&body.keys),
+                    keys: self.path_list(&body.keys),
                 },
             },
             request::Body::RegisterDescriptor(body) => types::RequestBody {
@@ -215,15 +215,9 @@ impl Keep {
         Ok(keep_list(&mut self.key_lists, items))
     }
 
-    fn key_request_list(&mut self, keys: &[request::KeyRequest]) -> types::List<types::KeyRequest> {
-        let items = keys
-            .iter()
-            .map(|key| types::KeyRequest {
-                derivation_path: self.path(&key.derivation_path),
-                kind: key.kind.value(),
-            })
-            .collect::<Vec<_>>();
-        keep_list(&mut self.key_request_lists, items)
+    fn path_list(&mut self, paths: &[DerivationPath]) -> types::List<types::Path> {
+        let items = paths.iter().map(|path| self.path(path)).collect::<Vec<_>>();
+        keep_list(&mut self.path_lists, items)
     }
 
     fn path(&mut self, path: &DerivationPath) -> types::Path {

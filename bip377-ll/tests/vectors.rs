@@ -7,9 +7,8 @@ use bip377_ll::{
 use serde_json::Value;
 
 use common::{
-    bip380, bip388, from_hex, key_request, musig_partial_sigs, musig_pub_nonces, path,
-    sp_foreign_scan_keys, sp_global_send, sp_keys, sp_per_input_send, to_hex, xpriv, xpub,
-    xpub_key,
+    bip380, bip388, child_xpub, from_hex, musig_partial_sigs, musig_pub_nonces, path,
+    sp_foreign_scan_keys, sp_global_send, sp_keys, sp_per_input_send, to_hex, xpub, xpub_key,
 };
 
 // MSG_TYPE follows MAGIC and VERSION, and its bit 7 marks a response
@@ -49,24 +48,24 @@ fn get_keys_messages() -> Vec<(&'static str, Message)> {
         (
             "get_keys_request_one_path",
             request(request::Body::GetKeys(request::GetKeys {
-                keys: vec![key_request("m/48'/0'/0'/2'", request::KeyKind::Public)],
+                keys: vec![path("m/48'/0'/0'/2'")],
             })),
         ),
         (
             "get_keys_request_silent_payment_and_xpubs",
             request(request::Body::GetKeys(request::GetKeys {
                 keys: vec![
-                    key_request("m/352'/1'/0'/0'", request::KeyKind::Public),
-                    key_request("m/352'/1'/0'/1'", request::KeyKind::Private),
-                    key_request("m/86'/1'/0'", request::KeyKind::Public),
-                    key_request("m/84'/1'/0'", request::KeyKind::Public),
+                    path("m/352'/1'/0'/0'"),
+                    path("m/352'/1'/0'/1'"),
+                    path("m/86'/1'/0'"),
+                    path("m/84'/1'/0'"),
                 ],
             })),
         ),
         (
             "get_keys_response_ok",
             response(response::Body::Keys(response::Keys {
-                keys: vec![xpub(), xpriv()],
+                keys: vec![xpub(), child_xpub()],
                 fingerprint: Fingerprint([0xde, 0xad, 0xbe, 0xef]),
                 vendor: "bip".to_string(),
                 model: "bip-signer".to_string(),
@@ -451,14 +450,6 @@ fn error_messages() -> Vec<(&'static str, Message)> {
             })),
         ),
         (
-            "error_response_private_key_export_refused",
-            response(response::Body::Error(response::ErrorBody {
-                message_type: protocol::MessageType::GetKeys,
-                error: response::Error::PrivateKeyExportRefused,
-                message: "private key export refused".to_string(),
-            })),
-        ),
-        (
             "error_response_musig_session",
             response(response::Body::Error(response::ErrorBody {
                 message_type: protocol::MessageType::Signing,
@@ -512,7 +503,7 @@ fn versioning_messages() -> Vec<(&'static str, Message)> {
         (
             "versioning_get_keys_request_version_two",
             request(request::Body::GetKeys(request::GetKeys {
-                keys: vec![key_request("m/48'/0'/0'/2'", request::KeyKind::Public)],
+                keys: vec![path("m/48'/0'/0'/2'")],
             })),
         ),
         (
@@ -542,7 +533,6 @@ fn invalid_errors() -> Vec<(&'static str, Error)> {
         ("invalid_type_unknown", Error::UnknownMessageType(0x08)),
         ("invalid_status_on_request", Error::ErrorStatusOnRequest),
         ("invalid_truncated", Error::Read(reader::Error::Truncated)),
-        ("invalid_key_kind", Error::UnknownKeyKind(0x02)),
         (
             "invalid_length_past_input",
             Error::Read(reader::Error::Truncated),

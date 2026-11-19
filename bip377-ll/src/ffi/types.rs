@@ -95,15 +95,7 @@ pub union RequestBody {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct GetKeys {
-    pub keys: List<KeyRequest>,
-}
-
-#[repr(C)]
-#[derive(Clone, Copy)]
-pub struct KeyRequest {
-    pub derivation_path: Path,
-    /// A `KeyKind` wire code.
-    pub kind: u8,
+    pub keys: List<Path>,
 }
 
 #[repr(C)]

@@ -7,7 +7,7 @@ use crate::{
         Backend,
         bitcoin::{
             self,
-            bip32::{self, ChildNumber, Xpriv, Xpub},
+            bip32::{self, ChildNumber, Xpub},
             key::FromSliceError,
             secp256k1,
         },
@@ -41,7 +41,6 @@ impl core::error::Error for Error {}
 impl Backend for RustBitcoin {
     type DerivationPath = bip32::DerivationPath;
     type Xpub = Xpub;
-    type Xpriv = Xpriv;
     type Fingerprint = bip32::Fingerprint;
     type PublicKey = bitcoin::PublicKey;
     type SecretKey = secp256k1::SecretKey;
@@ -61,14 +60,6 @@ impl Backend for RustBitcoin {
 
     fn from_ll_xpub(key: &ExtendedKey) -> Result<Xpub, Error> {
         Xpub::decode(&key.0).map_err(Error::ExtendedKey)
-    }
-
-    fn to_ll_xpriv(xpriv: &Xpriv) -> ExtendedKey {
-        ExtendedKey(xpriv.encode())
-    }
-
-    fn from_ll_xpriv(key: &ExtendedKey) -> Result<Xpriv, Error> {
-        Xpriv::decode(&key.0).map_err(Error::ExtendedKey)
     }
 
     fn to_ll_fingerprint(fingerprint: &bip32::Fingerprint) -> Fingerprint {

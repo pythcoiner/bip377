@@ -14,7 +14,6 @@ pub type Active = crate::backend::rust_bitcoin::RustBitcoin;
 pub trait Backend {
     type DerivationPath;
     type Xpub;
-    type Xpriv;
     type Fingerprint;
     type PublicKey;
     type SecretKey;
@@ -24,8 +23,6 @@ pub trait Backend {
     fn from_ll_path(path: &DerivationPath) -> Self::DerivationPath;
     fn to_ll_xpub(xpub: &Self::Xpub) -> ExtendedKey;
     fn from_ll_xpub(key: &ExtendedKey) -> Result<Self::Xpub, Self::Error>;
-    fn to_ll_xpriv(xpriv: &Self::Xpriv) -> ExtendedKey;
-    fn from_ll_xpriv(key: &ExtendedKey) -> Result<Self::Xpriv, Self::Error>;
     fn to_ll_fingerprint(fingerprint: &Self::Fingerprint) -> Fingerprint;
     fn from_ll_fingerprint(fingerprint: &Fingerprint) -> Self::Fingerprint;
     /// The wire carries compressed keys only, so an uncompressed one is an error.

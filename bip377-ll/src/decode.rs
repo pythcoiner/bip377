@@ -16,7 +16,6 @@ pub enum Error {
     ErrorStatusOnRequest,
     UnknownDescriptorForm(u8),
     UnknownSignResponseKind(u8),
-    UnknownKeyKind(u8),
     SignatureLength(u8),
     GlobalInputIndex(u32),
     ScanPathAndKey,
@@ -36,7 +35,6 @@ impl Error {
             Self::ErrorStatusOnRequest => error_info!(203, "request cannot carry error status"),
             Self::UnknownDescriptorForm(_) => error_info!(204, "unknown descriptor form"),
             Self::UnknownSignResponseKind(_) => error_info!(206, "unknown signing response kind"),
-            Self::UnknownKeyKind(_) => error_info!(207, "unknown key kind"),
             Self::SignatureLength(_) => {
                 error_info!(208, "signature entry fields do not fill its length")
             }
@@ -180,7 +178,7 @@ fn read_magic(reader: &mut Reader<'_>) -> Result<(), Error> {
 
 fn read_get_keys_request(reader: &mut Reader<'_>) -> Result<request::GetKeys, Error> {
     Ok(request::GetKeys {
-        keys: reader.take_vec(read_key_request)?,
+        keys: reader.take_vec(read_path)?,
     })
 }
 
@@ -431,13 +429,6 @@ fn read_signature_fields(
 fn read_sp_scope(reader: &mut Reader<'_>, input_index: u32) -> Result<response::SpScope, Error> {
     response::SpScope::from_wire(reader.take_bool()?, input_index)
         .ok_or(Error::GlobalInputIndex(input_index))
-}
-
-fn read_key_request(reader: &mut Reader<'_>) -> Result<request::KeyRequest, Error> {
-    Ok(request::KeyRequest {
-        derivation_path: read_path(reader)?,
-        kind: request::KeyKind::try_from(reader.take_u8()?)?,
-    })
 }
 
 fn read_path(reader: &mut Reader<'_>) -> Result<DerivationPath, Error> {

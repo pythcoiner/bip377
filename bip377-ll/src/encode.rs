@@ -8,7 +8,7 @@ use crate::{
 };
 
 pub const MAX_PATCH: u32 = 0x00ff_ffff;
-const ERROR_CODE_FUTURE_MIN: u8 = 0x11;
+const ERROR_CODE_FUTURE_MIN: u8 = 0x10;
 const ERROR_CODE_FUTURE_MAX: u8 = 0xfe;
 const NETWORKS_MASK: u8 = response::Networks::MAINNET
     | response::Networks::TESTNET
@@ -132,7 +132,7 @@ fn encode_response_body(out: &mut Vec<u8>, body: &response::Body) -> Result<(), 
 }
 
 fn encode_get_keys_request(out: &mut Vec<u8>, request: &request::GetKeys) -> Result<(), Error> {
-    write_vec(out, &request.keys, write_key_request)
+    write_vec(out, &request.keys, write_path)
 }
 
 fn encode_register_descriptor_request(
@@ -464,12 +464,6 @@ fn write_unknown_signature(
         return Err(Error::DefinedSignatureKind(*kind));
     }
     out.extend_from_slice(fields);
-    Ok(())
-}
-
-fn write_key_request(out: &mut Vec<u8>, key: &request::KeyRequest) -> Result<(), Error> {
-    write_path(out, &key.derivation_path)?;
-    out.push(key.kind.value());
     Ok(())
 }
 

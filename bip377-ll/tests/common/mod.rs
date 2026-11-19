@@ -13,7 +13,8 @@ const HARDENED: u32 = 0x8000_0000;
 
 // BIP-32 test vector 1's master key, serialized
 pub const XPUB_HEX: &str = "0488b21e000000000000000000873dff81c02f525623fd1fe5167eac3a55a049de3d314bb42ee227ffed37d5080339a36013301597daef41fbe593a02cc513d0b55527ec2df1050e2e8ff49c85c2";
-pub const XPRIV_HEX: &str = "0488ade4000000000000000000873dff81c02f525623fd1fe5167eac3a55a049de3d314bb42ee227ffed37d50800e8f32e723decf4051aefac8e2c93c9c5b214313817cdb01a1494b917c8436b35";
+// its m/0' child, the same test vector's first hardened chain
+pub const CHILD_XPUB_HEX: &str = "0488b21e013442193e8000000047fdacbd0f1097043b78c63c20c34ef4ed9a111d980047ad16282c7ae6236141035a784662a4a20a65bf6aab9ae98a6c068a81c52e4b032c0fb5400c706cfccc56";
 
 pub fn from_hex(hex: &str) -> Vec<u8> {
     assert!(hex.len() % 2 == 0, "odd hex length");
@@ -46,15 +47,8 @@ pub fn xpub() -> ExtendedKey {
     ExtendedKey(from_hex(XPUB_HEX).try_into().unwrap())
 }
 
-pub fn xpriv() -> ExtendedKey {
-    ExtendedKey(from_hex(XPRIV_HEX).try_into().unwrap())
-}
-
-pub fn key_request(path_text: &str, kind: request::KeyKind) -> request::KeyRequest {
-    request::KeyRequest {
-        derivation_path: path(path_text),
-        kind,
-    }
+pub fn child_xpub() -> ExtendedKey {
+    ExtendedKey(from_hex(CHILD_XPUB_HEX).try_into().unwrap())
 }
 
 pub fn bip380() -> request::DescriptorBody {

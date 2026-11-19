@@ -8,8 +8,8 @@ use bip377_ll::{
 };
 
 use common::{
-    aggregate, key_request, musig_partial_sigs, musig_pub_nonces, sp_global_send,
-    sp_per_input_send, sp_proof, sp_share, xpub, xpub_key,
+    aggregate, musig_partial_sigs, musig_pub_nonces, path, sp_global_send, sp_per_input_send,
+    sp_proof, sp_share, xpub, xpub_key,
 };
 
 // MAGIC is 6 bytes, so VERSION sits at index 6 and MSG_TYPE right after it
@@ -30,10 +30,6 @@ const FIRST_LEAF_HASH_PRESENCE_OFFSET: usize = FIRST_ENTRY_OFFSET + ENTRY_HEADER
 const TAP_KEY_ENTRY_LEN: usize = ENTRY_HEADER_LEN + 1 + 64;
 // GLOBAL, SCAN_KEY and SHARE
 const SP_SHARE_ENTRY_LEN: usize = ENTRY_HEADER_LEN + 1 + 33 + 33;
-// the first KIND of get_keys_request() follows the KEYS count and its path m/48'/0'/0'/2'
-// (CHILD_COUNT + 4 steps of 4 bytes)
-const FIRST_KEY_KIND_OFFSET: usize = HEADER_LEN + 1 + 1 + 4 * 4;
-
 fn id() -> RequestId {
     RequestId([42; REQUEST_ID_LEN])
 }
@@ -42,10 +38,7 @@ fn get_keys_request() -> Request {
     Request {
         id: id(),
         body: request::Body::GetKeys(request::GetKeys {
-            keys: vec![
-                key_request("m/48'/0'/0'/2'", request::KeyKind::Public),
-                key_request("m/84'/1'/0'", request::KeyKind::Public),
-            ],
+            keys: vec![path("m/48'/0'/0'/2'"), path("m/84'/1'/0'")],
         }),
     }
 }
@@ -209,13 +202,6 @@ fn decode_rejects_the_unreadable_request_type_on_a_request() {
     let mut bytes = encode_request(&get_keys_request()).unwrap();
     bytes[MSG_TYPE_OFFSET] = 0x00;
     assert_eq!(decode(&bytes), Err(decode::Error::UnreadableRequestType));
-}
-
-#[test]
-fn decode_rejects_an_unknown_key_kind() {
-    let mut bytes = encode_request(&get_keys_request()).unwrap();
-    bytes[FIRST_KEY_KIND_OFFSET] = 0x02;
-    assert_eq!(decode(&bytes), Err(decode::Error::UnknownKeyKind(0x02)));
 }
 
 #[test]
@@ -427,7 +413,6 @@ fn every_error_message_is_terminated_and_uniquely_coded() {
         decode::Error::ErrorStatusOnRequest,
         decode::Error::UnknownDescriptorForm(0),
         decode::Error::UnknownSignResponseKind(0),
-        decode::Error::UnknownKeyKind(0),
         decode::Error::SignatureLength(0),
         decode::Error::GlobalInputIndex(0),
         decode::Error::ScanPathAndKey,
@@ -667,11 +652,10 @@ fn every_error_code_round_trips() {
         (response::Error::NothingToSign, 0x09),
         (response::Error::InvalidPsbt, 0x0a),
         (response::Error::InternalError, 0x0b),
-        (response::Error::PrivateKeyExportRefused, 0x0c),
-        (response::Error::MusigSession, 0x0d),
-        (response::Error::AlreadyRegistered, 0x0e),
-        (response::Error::UnsupportedOperation, 0x0f),
-        (response::Error::NetworkMismatch, 0x10),
+        (response::Error::MusigSession, 0x0c),
+        (response::Error::AlreadyRegistered, 0x0d),
+        (response::Error::UnsupportedOperation, 0x0e),
+        (response::Error::NetworkMismatch, 0x0f),
         (response::Error::Vendor, 0xff),
     ] {
         assert_eq!(u8::from(error), code);

@@ -7,32 +7,19 @@ use bip377::{
     backend::{Active, Backend, rust_bitcoin::Error},
     bitcoin::{
         self,
-        bip32::{self, Xpriv, Xpub},
-        secp256k1::{self, Secp256k1},
+        bip32::{self, Xpub},
+        secp256k1,
     },
     ll::types::{Fingerprint, PublicKey, SecretKey},
 };
 
-use common::{FOREIGN_SCAN_KEY, path, xpriv, xpub, xpub_key};
+use common::{FOREIGN_SCAN_KEY, path, xpub, xpub_key};
 
+// BIP-32 test vector 1's master key
 const XPUB: &str = "xpub661MyMwAqRbcFtXgS5sYJABqqG9YLmC4Q1Rdap9gSE8NqtwybGhePY2gZ29ESFjqJoCu1Rupje8YtGqsefD265TMg7usUDFdp6W1EGMcet8";
-// the private key of XPUB, BIP-32 test vector 1's master key
-const XPRIV: &str = "xprv9s21ZrQH143K3QTDL4LXw2F7HEK3wJUD2nW2nRk4stbPy6cq3jPPqjiChkVvvNKmPGJxWUtg6LnF5kejMRNNU3TGtRBeJgk33yuGBxrMPHi";
 
 fn bitcoin_xpub() -> Xpub {
     XPUB.parse().unwrap()
-}
-
-fn bitcoin_xpriv() -> Xpriv {
-    XPRIV.parse().unwrap()
-}
-
-#[test]
-fn the_xpriv_fixture_is_the_xpub_fixtures_private_key() {
-    assert_eq!(
-        Xpub::from_priv(&Secp256k1::new(), &bitcoin_xpriv()),
-        bitcoin_xpub()
-    );
 }
 
 #[test]
@@ -40,33 +27,6 @@ fn xpub_round_trips() {
     let key = Active::to_ll_xpub(&bitcoin_xpub());
     assert_eq!(key, xpub());
     assert_eq!(Active::from_ll_xpub(&key), Ok(bitcoin_xpub()));
-}
-
-#[test]
-fn xpriv_round_trips() {
-    let key = Active::to_ll_xpriv(&bitcoin_xpriv());
-    assert_eq!(key, xpriv());
-    assert_eq!(Active::from_ll_xpriv(&key), Ok(bitcoin_xpriv()));
-}
-
-#[test]
-fn an_xpriv_is_not_read_as_an_xpub() {
-    assert_eq!(
-        Active::from_ll_xpub(&xpriv()),
-        Err(Error::ExtendedKey(bip32::Error::UnknownVersion([
-            0x04, 0x88, 0xad, 0xe4
-        ])))
-    );
-}
-
-#[test]
-fn an_xpub_is_not_read_as_an_xpriv() {
-    assert_eq!(
-        Active::from_ll_xpriv(&xpub()),
-        Err(Error::ExtendedKey(bip32::Error::UnknownVersion([
-            0x04, 0x88, 0xb2, 0x1e
-        ])))
-    );
 }
 
 #[test]

@@ -8,7 +8,7 @@ use std::{
 use bip377_ll::{
     Message, MessageType, Request, RequestId, SignResponseKind, decode,
     ffi::{self, bip377_request_decode, bip377_request_free, types},
-    request::{self, DescriptorBody, KeyKind, Scan, SpKeys},
+    request::{self, DescriptorBody, Scan, SpKeys},
     types::{DerivationPath, Fingerprint, SecretKey},
 };
 use libfuzzer_sys::fuzz_target;
@@ -95,10 +95,7 @@ unsafe fn request_body(view: &types::Request) -> request::Body {
         MessageType::GetKeys => request::Body::GetKeys(request::GetKeys {
             keys: unsafe { view.body.get_keys.keys.as_slice() }
                 .iter()
-                .map(|key| request::KeyRequest {
-                    derivation_path: unsafe { path(key.derivation_path) },
-                    kind: KeyKind::try_from(key.kind).expect("a known key kind"),
-                })
+                .map(|key| unsafe { path(*key) })
                 .collect(),
         }),
         MessageType::RegisterDescriptor => {

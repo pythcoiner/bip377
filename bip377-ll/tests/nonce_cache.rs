@@ -267,7 +267,7 @@ fn old_dispatch_rejects_preparation_even_with_a_newer_version() {
 
 #[test]
 fn nonce_cache_session_refusal_is_the_session_error() {
-    assert_eq!(u8::from(response::Error::MusigSession), 0x0d);
+    assert_eq!(u8::from(response::Error::MusigSession), 0x0c);
     for message_type in [MessageType::NoncePreparation, MessageType::Signing] {
         let response = response(response::Body::Error(response::ErrorBody {
             message_type,

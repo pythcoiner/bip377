@@ -51,10 +51,9 @@ valid UTF-8 and MUST NOT contain a nul byte.
 
 `FINGERPRINT`: 4 bytes, the BIP-32 master key fingerprint.
 
-`EXTENDED_KEY`: 78 bytes, the BIP-32 serialization of an extended public or private
-key (4 version + 1 depth + 4 parent fingerprint + 4 child number + 32 chain code +
-33 key). A private key carries `0x00` followed by its 32-byte key in place of the
-33-byte public key, and its own version bytes, so both have the same length.
+`EXTENDED_KEY`: 78 bytes, the BIP-32 serialization of an extended public key
+(4 version + 1 depth + 4 parent fingerprint + 4 child number + 32 chain code +
+33 key).
 
 `PSBT`: a `BYTES` (`LENGTH` followed by `LENGTH` raw bytes) whose content is the
 binary serialization of a version 0 (BIP-174) or version 2 (BIP-370) PSBT. Base64 is
@@ -173,9 +172,7 @@ its inputs belong to.
 
 Bit 5 means the signer holds silent payment accounts: it takes `FORM` `0x03`,
 verifies their addresses (see Address Verification) and spends the outputs they
-received (BIP-376). It also answers Get Keys `KIND` `0x01` at its BIP-352 scan key
-path, so a coordinator can scan for the account; the user MAY still refuse the
-export (`ERROR` `0x0C`).
+received (BIP-376).
 
 Bit 6 means the signer implements Unregister Descriptor. A signer that only issues
 a `POR` never sets it.
@@ -195,7 +192,7 @@ capabilities beyond this bitfield and the coordinator should upgrade to interpre
 them.
 
 A signer MUST answer a request needing a capability it does not advertise with
-`ERROR` `0x0F` (unsupported operation), e.g. a Taproot miniscript descriptor without
+`ERROR` `0x0E` (unsupported operation), e.g. a Taproot miniscript descriptor without
 bit 3, a silent payment send without bit 4, a silent payment spend without bit 5, an
 Unregister Descriptor request without bit 6, a `musig()` key without bit 7, or a
 Nonce Preparation request without bit 8. A `FORM` that needs a capability the signer
@@ -301,18 +298,17 @@ Global error table:
 | 0x09      | Nothing to sign / no matching key for any input      |
 | 0x0A      | Invalid or unparsable PSBT                           |
 | 0x0B      | Internal device error                                |
-| 0x0C      | Private key export refused (Get Keys)                |
-| 0x0D      | Session missing, consumed or mismatched              |
-| 0x0E      | Descriptor alias already registered                  |
-| 0x0F      | Unsupported operation                                |
-| 0x10      | Network mismatch                                     |
-| 0x11–0xFE | Reserved for future standard codes                   |
+| 0x0C      | Session missing, consumed or mismatched              |
+| 0x0D      | Descriptor alias already registered                  |
+| 0x0E      | Unsupported operation                                |
+| 0x0F      | Network mismatch                                     |
+| 0x10–0xFE | Reserved for future standard codes                   |
 | 0xFF      | Vendor-specific (meaning carried by `ERROR_MESSAGE`) |
 +-----------+------------------------------------------------------+
 ```
 
-`0x00` is reserved and MUST NOT be sent. `0x01`–`0x10` are the standard codes above;
-`0x11`–`0xFE` are reserved for future standard codes. `0xFF` is vendor-specific: the
+`0x00` is reserved and MUST NOT be sent. `0x01`–`0x0F` are the standard codes above;
+`0x10`–`0xFE` are reserved for future standard codes. `0xFF` is vendor-specific: the
 code alone is not meaningful, so `ERROR_MESSAGE` carries the description. A receiver
 MUST NOT reject an unrecognized `ERROR`; `STATUS` = `1` already denotes an error,
 and it SHOULD fall back to `ERROR_MESSAGE`.
@@ -320,13 +316,13 @@ and it SHOULD fall back to `ERROR_MESSAGE`.
 A signer MUST answer `0x06` to a request carrying a `DESCRIPTOR_BODY` whose `FORM`
 it cannot take, whatever the reason: a `FORM` value it does not know, a form it
 does not implement, or a form needing a capability bit it does not advertise
-(e.g. `FORM` `0x03` without bit 5). It answers `0x06`, not `0x0F` or `0x03`.
+(e.g. `FORM` `0x03` without bit 5). It answers `0x06`, not `0x0E` or `0x03`.
 
-A signer MUST answer `0x0F` to a request whose operation, or a capability it
+A signer MUST answer `0x0E` to a request whose operation, or a capability it
 needs, the signer does not support: a known `TYPE` it does not implement, or a
 request needing a capability bit it does not advertise (see `CAPABILITIES`),
 except a `FORM` it cannot take (`0x06`).
-A signer MUST answer `0x10` to a request whose descriptor, keys, address or `PSBT`
+A signer MUST answer `0x0F` to a request whose descriptor, keys, address or `PSBT`
 are for a network it does not sign for (not in its Get Info `NETWORKS`), or for
 another network than the one it is set to.
 
@@ -398,7 +394,7 @@ does not know.
 Bits 0 and 5–7 are reserved: they MUST be `0` when written, and a reader MUST
 ignore them.
 A signer MUST answer a request for a network it does not sign for with `ERROR`
-`0x10` (network mismatch).
+`0x0F` (network mismatch).
 
 `MAX_MESSAGE`: 4-byte big-endian unsigned integer, the size in bytes of the largest
 complete `MESSAGE` the signer accepts.
@@ -418,37 +414,15 @@ reader ignores them as trailing bytes (see Versioning).
 
 `KEYS`
 
-`KEYS`: a vector of `KEY_REQUEST`, the keys to derive.
-
-`KEY_REQUEST` follows this format:
-
-`DERIVATION_PATH` `KIND`
-
-`DERIVATION_PATH`: the path of the key from the master key.
-`KIND`: 1-byte unsigned integer selecting the key returned at that path.
-
-```
-+-----------+-------------------------------+
-| Value     | Definition                    |
-+-----------+-------------------------------+
-| 0x00      | Public: extended public key   |
-| 0x01      | Private: extended private key |
-| 0x02–0xFF | Reserved                      |
-+-----------+-------------------------------+
-```
-
-Values `0x02`–`0xFF` are reserved; a parser MUST reject them.
-
-Note: a silent payment wallet needs the BIP-352 scan private key to scan. When the
-scan key is the signer's, the wallet fetches it with `KIND` `0x01` at the scan key's
-path. The spend key never needs to leave the signer.
+`KEYS`: a vector of `DERIVATION_PATH`, the path of each key to derive from the
+master key.
 
 **Ok response** (`TYPE` = `0x02`, response):
 
 `KEYS` `FINGERPRINT` `VENDOR` `MODEL` `VERSION` `CAPABILITIES`
 
-`KEYS`: a vector of `EXTENDED_KEY`, one per request `KEY_REQUEST` in the same
-order, each of the `KIND` requested.
+`KEYS`: a vector of `EXTENDED_KEY`, one per requested `DERIVATION_PATH` in the
+same order.
 `FINGERPRINT`: the `FINGERPRINT` of the master key. Mandatory.
 `VENDOR`, `MODEL`, `VERSION`, `CAPABILITIES`: the device fields defined in Common
 Field Encodings. Mandatory.
@@ -690,7 +664,7 @@ keys. The `PSBT` selects what the signer returns:
 
 The last two are the two rounds of the nonce cache BIP draft. With `KIND` `0x01`
 the same values go in the `PSBT`. A session missing, consumed or mismatched is
-refused with `ERROR` `0x0D`. So is a Signing request naming a nonce cache session
+refused with `ERROR` `0x0C`. So is a Signing request naming a nonce cache session
 whose `PSBT` carries, for the signer's own key, a `PSBT_IN_MUSIG2_PUB_NONCE`
 (`0x1b`) that session did not prepare.
 
@@ -701,7 +675,7 @@ whose `PSBT` carries, for the signer's own key, a `PSBT_IN_MUSIG2_PUB_NONCE`
 ### Nonce Preparation
 
 This operation requires capability bit 8 and has `TYPE` `0x06`. A signer without
-bit 8 MUST answer it with `ERROR` `0x0F`. It prepares public nonces for later
+bit 8 MUST answer it with `ERROR` `0x0E`. It prepares public nonces for later
 Signing exchanges, the nonce cache BIP draft being one use. No root, secret nonce
 or other secret material may appear in these messages.
 
@@ -729,7 +703,7 @@ fetch a session in chunks. A reader MUST reject a request carrying `SESSION_REF`
 without `SESSION_ID`.
 
 A signer MUST refuse a request whose `SESSION_REF` does not match its stored session
-for `SESSION_ID`, or names a session it does not hold, with `ERROR` `0x0D`, and MUST
+for `SESSION_ID`, or names a session it does not hold, with `ERROR` `0x0C`, and MUST
 NOT create a new session for it.
 
 The signer initializes a new session for a request without `SESSION_ID`, under the
@@ -769,7 +743,7 @@ The signer MUST ask the user to confirm before it removes the registration, show
 `ERROR` `0x01`, and an alias the signer does not hold gets `ERROR` `0x04`.
 
 A signer that never stores a registration, and only issues a `POR`, does not
-advertise capability bit 6 and answers `ERROR` `0x0F`. This request cannot revoke
+advertise capability bit 6 and answers `ERROR` `0x0E`. This request cannot revoke
 a `POR`: the coordinator forgets it instead.
 
 **Ok response** (`TYPE` = `0x07`, response):
@@ -820,9 +794,9 @@ Rules for future versions:
 - A parser MUST reject input that ends before a required field is fully read, a
   compact-size `LENGTH`/`COUNT` that exceeds the remaining input, a `BOOL` or
   `PRESENCE` outside `{0x00, 0x01}`, a discriminant outside its defined range: the
-  `TYPE`, the `FORM`, the Get Keys `KIND` or the Signing response `KIND` (an
-  unknown `SIG_KIND` is skipped and an unknown `WANT_KIND` ignored, as their
-  sections define), `STATUS` = `1` on a request, `TYPE` `0x00` outside an error
+  `TYPE`, the `FORM` or the Signing response `KIND` (an unknown `SIG_KIND` is
+  skipped and an unknown `WANT_KIND` ignored, as their sections define), `STATUS` =
+  `1` on a request, `TYPE` `0x00` outside an error
   response with `REQUEST_ID` `0x0000`, a `STRING` that is not valid UTF-8 or that
   contains a nul byte, or a `FORM` `0x03` body with both or neither of `SCAN_PATH`
   and `SCAN_KEY`.
@@ -852,23 +826,23 @@ Machine-checkable vectors accompany this specification, in `test_vectors/`:
   for a new session (`SESSION_ID` and `SESSION_REF` present) and for an existing
   one (both absent).
 - `errors.json`: error responses (`STATUS` = `1`), standard and vendor codes,
-  including `0x0D` (session), `0x0E` (alias already registered), `0x0F`
-  (unsupported operation), `0x10` (network mismatch) and the reply to an
+  including `0x0C` (session), `0x0D` (alias already registered), `0x0E`
+  (unsupported operation), `0x0F` (network mismatch) and the reply to an
   unreadable request (`TYPE` `0x00`, `REQUEST_ID` `0x0000`).
 - `versioning.json`: forward compatibility, a message whose `VERSION` is above 1
   and which carries trailing bytes a version-1 parser does not know.
 - `invalid.json`: malformed messages a reader MUST reject, each a vector above with
   one change its `description` names: a bad `MAGIC`, a reserved or unknown `TYPE`,
-  `FORM` and `KIND`, `TYPE` `0x00` on a request, an ok response or an error response
-  with another `REQUEST_ID`, `STATUS` = `1` on a request, truncated input, an
-  invalid `PRESENCE`, `BOOL` or `STRING`, a `DESCRIPTOR_ALIAS` above 32 bytes, an
-  Unregister Descriptor request without its `DESCRIPTOR_ALIAS`, both or neither of
-  `SCAN_PATH` and `SCAN_KEY`, unpaired or duplicate silent payment entries, a global
-  one with an `INPUT_INDEX` other than `0`, signatures of the wrong length, a Nonce
-  Preparation request with `MAX_INPUTS` `0`, `START` above `END` or `SESSION_REF`
-  without `SESSION_ID`, a Nonce Preparation response with only one of `SESSION_ID`
-  and `SESSION_REF`, and a Get Info response with a `MAX_ALIAS` above 32 or a
-  `FINGERPRINT` while not ready.
+  `FORM` and Signing response `KIND`, `TYPE` `0x00` on a request, an ok response or
+  an error response with another `REQUEST_ID`, `STATUS` = `1` on a request,
+  truncated input, an invalid `PRESENCE`, `BOOL` or `STRING`, a `DESCRIPTOR_ALIAS`
+  above 32 bytes, an Unregister Descriptor request without its `DESCRIPTOR_ALIAS`,
+  both or neither of `SCAN_PATH` and `SCAN_KEY`, unpaired or duplicate silent
+  payment entries, a global one with an `INPUT_INDEX` other than `0`, signatures of
+  the wrong length, a Nonce Preparation request with `MAX_INPUTS` `0`, `START` above
+  `END` or `SESSION_REF` without `SESSION_ID`, a Nonce Preparation response with
+  only one of `SESSION_ID` and `SESSION_REF`, and a Get Info response with a
+  `MAX_ALIAS` above 32 or a `FINGERPRINT` while not ready.
 
 Every file holds one JSON object with a single `vectors` array:
 
@@ -877,9 +851,9 @@ Every file holds one JSON object with a single `vectors` array:
   "vectors": [
     {
       "name": "get_keys_request_one_path",
-      "description": "Get Keys request for the extended public key at m/48'/0'/0'/2', so a single KEY_REQUEST whose KIND is 0x00 (public).",
+      "description": "Get Keys request for the extended public key at m/48'/0'/0'/2', so a single DERIVATION_PATH.",
       "direction": "request",
-      "hex": "4249503337370102000101048000003080000000800000008000000200",
+      "hex": "42495033373701020001010480000030800000008000000080000002",
       "decode_only": false
     }
   ]
