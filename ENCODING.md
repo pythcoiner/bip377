@@ -18,6 +18,56 @@ miniscript and MuSig2 included, and for silent payment wallets (BIP-352).
 The encoding is **transport agnostic**: a `MESSAGE` is a self-contained byte string,
 and how it is delivered (animated QR, USB, NFC, a file, etc.) is out of scope.
 
+## Overview
+
+A **coordinator** is online software that holds the wallet's descriptors and builds
+its transactions. It holds no signing key. A **signer** is an external device that
+holds the seed, derives keys from it, displays addresses and transactions to its
+user, and produces signatures. The coordinator is untrusted.
+
+A `MESSAGE` is a request or a response. The coordinator sends a request and the
+signer answers it with exactly one response, an ok response carrying the result or
+an error response carrying a code and a description (see
+[Error response body](#error-response-body)). A signer sends no message of its own.
+The signer echoes the request's `REQUEST_ID` in its response, which pairs the two
+whatever order they arrive in.
+
+### Operations
+
+```
++--------+-----------------------+----------------------------------------------+
+| `TYPE` | Operation             | Purpose                                      |
++--------+-----------------------+----------------------------------------------+
+| 0x01   | Get Info              | Report the device, its capabilities and its  |
+|        |                       | state                                        |
+| 0x02   | Get Keys              | Export the extended public keys at given     |
+|        |                       | derivation paths                             |
+| 0x03   | Register Descriptor   | Register a descriptor under an alias         |
+| 0x04   | Address Verification  | Display an address derived from a descriptor |
+| 0x05   | Signing               | Sign a PSBT                                  |
+| 0x06   | Nonce Preparation     | Prepare public nonces for later Signing      |
+|        |                       | exchanges                                    |
+| 0x07   | Unregister Descriptor | Remove a registration                        |
++--------+-----------------------+----------------------------------------------+
+```
+
+### Registration
+
+A registration binds a descriptor to a `DESCRIPTOR_ALIAS` on the signer. A signer
+that holds the descriptor identifies its own inputs and outputs in a later request
+and displays a transaction in terms of the wallet. A signer handles a registration
+in one of two ways:
+
+- It stores the descriptor (`STORED` `true`). A later request names it by
+  `DESCRIPTOR_ALIAS` alone.
+- It stores nothing and returns a proof of registration (`POR`), opaque bytes with
+  which it later establishes that it accepted the descriptor. The coordinator holds
+  the descriptor and the `POR` and sends both with every later request. A signer of
+  this kind is called stateless below.
+
+The OPTIONAL `DESCRIPTOR` and `POR` fields of the Address Verification and Signing
+requests serve the second kind.
+
 ## Specification
 
 ### Integer Encodings
@@ -169,10 +219,11 @@ it takes, so a coordinator picks the form before it sends one: a BIP-388 wallet
 policy always converts to a BIP-380 descriptor, while a descriptor converts to a
 wallet policy only when it fits BIP-388's restrictions.
 
-A signer taking bit 0 or bit 1 handles the basic descriptors whatever its other
-bits: `pkh`, `wpkh`, `sh(wpkh)`, `tr` with a key and no script tree, and `multi` /
-`sortedmulti` under `sh`, `wsh` and `sh(wsh)`. Bit 2 extends this to any miniscript
-under `wsh` and `sh(wsh)`, bit 3 to `tr` with a script tree of miniscript leaves.
+A signer that sets bit 0 or bit 1 handles the basic descriptors regardless of its
+other bits: `pkh`, `wpkh`, `sh(wpkh)`, `tr` with a key and no script tree, and
+`multi` / `sortedmulti` under `sh`, `wsh` and `sh(wsh)`. Bit 2 extends this to any
+miniscript under `wsh` and `sh(wsh)`, bit 3 to `tr` with a script tree of
+miniscript leaves.
 
 Bit 4 means the signer can sign a transaction paying silent payment outputs: it
 answers with the BIP-375 ECDH shares and DLEQ proofs (see Signing), whatever wallet
@@ -205,7 +256,8 @@ bit 3, a silent payment send without bit 4, a silent payment spend without bit 5
 Unregister Descriptor request without bit 6, a `musig()` key without bit 7, or a
 Nonce Preparation request without bit 8. A `FORM` that needs a capability the signer
 does not advertise, such as `FORM` `0x01` without bit 0 or `FORM` `0x03` without bit
-5, is the exception: it gets `ERROR` `0x06` (see Error response body).
+5, is the exception: it gets `ERROR` `0x06` (see
+[Error response body](#error-response-body)).
 
 ### Encoding
 
@@ -261,9 +313,10 @@ Values `0x08`–`0x3F` are reserved. A parser MUST reject an unknown `TYPE`, and
 MUST reject `STATUS` = `1` on a request (`DIRECTION` = `0`).
 
 `TYPE` `0x00` (unreadable request) is valid only in an error response whose
-`REQUEST_ID` is `0x0000`: the reply to a request the signer cannot read (see Error
-response body). A parser MUST accept it there, and MUST reject it in a request, in
-an ok response, and in an error response with another `REQUEST_ID`.
+`REQUEST_ID` is `0x0000`: the reply to a request the signer cannot read (see
+[Error response body](#error-response-body)). A parser MUST accept it there, and
+MUST reject it in a request, in an ok response, and in an error response with
+another `REQUEST_ID`.
 
 #### Request Id
 
@@ -274,8 +327,8 @@ carries no structure and a receiver MUST NOT interpret it. It MUST be present in
 every message.
 
 The reply to a request the signer cannot read carries `REQUEST_ID` `0x0000` instead
-(see Error response body). A coordinator SHOULD NOT choose `0x0000`, so this reply
-never pairs with a request it sent.
+(see [Error response body](#error-response-body)). A coordinator SHOULD NOT choose
+`0x0000`, so this reply never pairs with a request it sent.
 
 #### Error response body
 
@@ -809,7 +862,7 @@ Rules for future versions:
   `0x03` body with both or neither of `SCAN_PATH` and `SCAN_KEY`, or a `FW_VERSION`
   whose `NUMBER` is not `0x00` when `CHANNEL` is `0x00`.
 - A signer MUST answer a request it cannot read with `REQUEST_ID` `0x0000` and
-  `TYPE` `0x00` (see Error response body).
+  `TYPE` `0x00` (see [Error response body](#error-response-body)).
 
 ## Test Vectors
 
