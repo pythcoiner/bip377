@@ -1,4 +1,4 @@
-/* C binding for the QR signing codec, signer direction.
+/* C binding for the BIP-377 signing codec, signer direction.
  *
  * Kept in sync by hand with src/ffi/types.rs. The wire format is
  * specified in ENCODING.md.

@@ -1,7 +1,7 @@
 # bip377-ll
 
-The binary codec for the draft signing protocol between a coordinator and a
-signer. [ENCODING.md](../ENCODING.md) is the authoritative format; this crate
+The binary codec for draft BIP-377, the signing message encoding between a
+coordinator and a signer. [ENCODING.md](../ENCODING.md) is the authoritative format; this crate
 implements it and nothing else. Framing (BBQR) and QR rendering are out of scope.
 
 The crate is `no_std` plus `alloc` and pulls no dependency in its default

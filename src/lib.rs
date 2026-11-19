@@ -1,5 +1,4 @@
-//! Codec for the draft QR signing protocol, with conversions to and from a
-//! `bitcoin` release.
+//! Codec for draft BIP-377, with conversions to and from a `bitcoin` release.
 //!
 //! The codec itself lives in [`bip377-ll`](ll), which is dependency-free so a
 //! bare-metal signer can depend on it directly. This crate re-exports it and adds

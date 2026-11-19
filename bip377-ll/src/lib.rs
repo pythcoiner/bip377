@@ -1,4 +1,4 @@
-//! Binary codec for the draft signing protocol described in `ENCODING.md`.
+//! Binary codec for draft BIP-377, described in `ENCODING.md`.
 //!
 //! The crate is `no_std` plus `alloc` and pulls no dependency of its own, so a
 //! bare-metal signer can vendor it as-is. Enable `ffi` for the C binding; the
