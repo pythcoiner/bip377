@@ -210,11 +210,9 @@ A message is encoded as follows:
 
 #### Magic
 
-`MAGIC`: 6 bytes, the ASCII representation of **BIPXXX** (TBD)
-(`0x42 0x49 0x50 0x58 0x58 0x58`). A parser MUST reject any input that does not
-begin with `MAGIC` before parsing further. `BIPXXX` is a placeholder: once a BIP
-number is assigned, the three `X` bytes are replaced by its ASCII digits (e.g.
-**BIP138** -> `0x42 0x49 0x50 0x31 0x33 0x38`).
+`MAGIC`: 6 bytes, the ASCII representation of **BIP377**
+(`0x42 0x49 0x50 0x33 0x37 0x37`). A parser MUST reject any input that does not
+begin with `MAGIC` before parsing further.
 
 #### Version
 
@@ -881,7 +879,7 @@ Every file holds one JSON object with a single `vectors` array:
       "name": "get_keys_request_one_path",
       "description": "Get Keys request for the extended public key at m/48'/0'/0'/2', so a single KEY_REQUEST whose KIND is 0x00 (public).",
       "direction": "request",
-      "hex": "4249505858580102000101048000003080000000800000008000000200",
+      "hex": "4249503337370102000101048000003080000000800000008000000200",
       "decode_only": false
     }
   ]

@@ -54,7 +54,7 @@ fn optional(bytes: &mut Vec<u8>, field: Option<[u8; 4]>) {
 
 // Build malformed bodies independently of the validating encoder.
 fn raw_preparation(body: &request::PrepareNonces) -> Vec<u8> {
-    let mut bytes = b"BIPXXX\x01\x06\x12\x34".to_vec();
+    let mut bytes = b"BIP377\x01\x06\x12\x34".to_vec();
     optional(&mut bytes, body.session_id);
     optional(&mut bytes, body.session_ref);
     // DESCRIPTOR, absent in every preparation built here
@@ -74,7 +74,7 @@ fn raw_prepared(
     session_ref: Option<[u8; 4]>,
     nonces: &[[u8; 66]],
 ) -> Vec<u8> {
-    let mut bytes = b"BIPXXX\x01\x86\x12\x34".to_vec();
+    let mut bytes = b"BIP377\x01\x86\x12\x34".to_vec();
     optional(&mut bytes, session_id);
     optional(&mut bytes, session_ref);
     bytes.push(nonces.len() as u8);

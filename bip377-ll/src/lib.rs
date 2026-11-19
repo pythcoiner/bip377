@@ -64,7 +64,7 @@ pub mod types;
 
 use alloc::{string::String, vec::Vec};
 
-const MAGIC: &[u8; 6] = b"BIPXXX";
+const MAGIC: &[u8; 6] = b"BIP377";
 const VERSION: u8 = 1;
 const DIRECTION_RESPONSE: u8 = 0x80;
 const DIRECTION_REQUEST: u8 = 0x0;
