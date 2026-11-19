@@ -7,7 +7,6 @@ use crate::{
     types::{DerivationPath, ExtendedKey, PublicKey, TAP_LEAF_HASH_LEN},
 };
 
-pub const MAX_PATCH: u32 = 0x00ff_ffff;
 const ERROR_CODE_FUTURE_MIN: u8 = 0x10;
 const ERROR_CODE_FUTURE_MAX: u8 = 0xfe;
 const NETWORKS_MASK: u8 = response::Networks::MAINNET
@@ -19,7 +18,6 @@ const NETWORKS_MASK: u8 = response::Networks::MAINNET
 pub enum Error {
     Invalid(Invalid),
     PathTooLong(usize),
-    PatchTooLarge(u32),
     ReservedCapabilityBits(u32),
     ErrorCodeOutOfRange(u8),
     StringTooLong { len: usize, max: usize },
@@ -38,7 +36,6 @@ impl Error {
             Self::PathTooLong(_) => {
                 error_info!(300, "derivation path does not fit the one-byte child count")
             }
-            Self::PatchTooLarge(_) => error_info!(301, "firmware patch version is too large"),
             Self::ReservedCapabilityBits(_) => error_info!(302, "reserved capability bits are set"),
             Self::ErrorCodeOutOfRange(_) => {
                 error_info!(303, "unknown error code is outside the reserved range")
@@ -482,26 +479,21 @@ fn write_extended_key(out: &mut Vec<u8>, key: &ExtendedKey) -> Result<(), Error>
 }
 
 fn write_version(out: &mut Vec<u8>, version: &response::FirmwareVersion) -> Result<(), Error> {
-    if version.patch > MAX_PATCH {
-        return Err(Error::PatchTooLarge(version.patch));
-    }
     out.extend_from_slice(&version.major.to_be_bytes());
     out.extend_from_slice(&version.minor.to_be_bytes());
-    out.push((version.patch >> 16) as u8);
-    out.push((version.patch >> 8) as u8);
-    out.push(version.patch as u8);
+    out.extend_from_slice(&version.patch.to_be_bytes());
     write_release_flag(out, version.flag)
 }
 
-// The decoder reads a defined flag as its own variant, so none may hide behind
+// The decoder reads a defined channel as its own variant, so none may hide behind
 // `Unknown`.
 fn write_release_flag(out: &mut Vec<u8>, flag: response::ReleaseFlag) -> Result<(), Error> {
-    if let response::ReleaseFlag::Unknown(value) = flag {
-        if response::ReleaseFlag::from(value) != flag {
-            return Err(Error::DefinedReleaseFlag(value));
+    if let response::ReleaseFlag::Unknown { channel, number } = flag {
+        if response::ReleaseFlag::try_from([channel, number]) != Ok(flag) {
+            return Err(Error::DefinedReleaseFlag(channel));
         }
     }
-    out.push(flag.value());
+    out.extend_from_slice(&flag.bytes());
     Ok(())
 }
 

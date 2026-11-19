@@ -83,6 +83,7 @@ pub enum Invalid {
     MissingSpShare,
     MaxAliasTooLarge(u8),
     FingerprintWhenNotReady,
+    NumberedStableRelease(u8),
     TaprootSignatureLength(usize),
     ZeroMaxInputs,
     ReversedExpressionRange,
@@ -110,6 +111,9 @@ impl Invalid {
             }
             Self::FingerprintWhenNotReady => {
                 error_info!(505, "fingerprint is present while the signer is not ready")
+            }
+            Self::NumberedStableRelease(_) => {
+                error_info!(511, "stable release flag carries a pre-release number")
             }
             Self::TaprootSignatureLength(_) => {
                 error_info!(506, "taproot signature is not 64 or 65 bytes")

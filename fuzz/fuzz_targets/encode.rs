@@ -285,13 +285,16 @@ impl Builder<'_> {
         FirmwareVersion {
             major: self.u16(),
             minor: self.u16(),
-            patch: self.u32(),
+            patch: self.u16(),
             flag: match self.u8() % 5 {
                 0 => ReleaseFlag::Stable,
-                1 => ReleaseFlag::Alpha,
-                2 => ReleaseFlag::Beta,
-                3 => ReleaseFlag::ReleaseCandidate,
-                _ => ReleaseFlag::Unknown(self.u8()),
+                1 => ReleaseFlag::Alpha(self.u8()),
+                2 => ReleaseFlag::Beta(self.u8()),
+                3 => ReleaseFlag::ReleaseCandidate(self.u8()),
+                _ => ReleaseFlag::Unknown {
+                    channel: self.u8(),
+                    number: self.u8(),
+                },
             },
         }
     }

@@ -73,7 +73,7 @@ fn get_keys_messages() -> Vec<(&'static str, Message)> {
                     major: 1,
                     minor: 2,
                     patch: 3,
-                    flag: response::ReleaseFlag::Beta,
+                    flag: response::ReleaseFlag::Beta(2),
                 },
                 capabilities: response::Capabilities(0x0000_00bf),
             })),
@@ -379,7 +379,7 @@ fn info(state: response::State) -> response::Info {
             major: 1,
             minor: 2,
             patch: 3,
-            flag: response::ReleaseFlag::Beta,
+            flag: response::ReleaseFlag::Beta(2),
         },
         capabilities: response::Capabilities(0x0000_00bf),
         state,
@@ -631,6 +631,10 @@ fn invalid_errors() -> Vec<(&'static str, Error)> {
             Error::Invalid(Invalid::DuplicateSpProof),
         ),
         ("invalid_sp_global_input_index", Error::GlobalInputIndex(1)),
+        (
+            "invalid_get_info_stable_release_number",
+            Error::Invalid(Invalid::NumberedStableRelease(0x01)),
+        ),
         (
             "invalid_get_info_max_alias",
             Error::Invalid(Invalid::MaxAliasTooLarge(33)),

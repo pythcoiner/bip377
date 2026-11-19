@@ -104,8 +104,9 @@ enum bip377_signature_kind {
     BIP377_SIGNATURE_SP_DLEQ_PROOF = 0x07
 };
 
-/* Open: a value outside this list is a newer flag and passes through unchanged. */
-enum bip377_release_flag {
+/* Open: a value outside this list is a newer pre-release channel and passes through
+ * unchanged. Only BIP377_RELEASE_STABLE forbids a number. */
+enum bip377_release_channel {
     BIP377_RELEASE_STABLE = 0x00,
     BIP377_RELEASE_ALPHA = 0x01,
     BIP377_RELEASE_BETA = 0x02,
@@ -175,7 +176,6 @@ enum bip377_status {
     BIP377_ERR_UNREADABLE_REQUEST_TYPE = 213,
 
     BIP377_ERR_PATH_TOO_LONG = 300,
-    BIP377_ERR_PATCH_TOO_LARGE = 301,
     BIP377_ERR_RESERVED_CAPABILITY_BITS = 302,
     BIP377_ERR_ERROR_CODE_OUT_OF_RANGE = 303,
     BIP377_ERR_STRING_TOO_LONG = 306,
@@ -204,7 +204,8 @@ enum bip377_status {
     BIP377_ERR_ZERO_MAX_INPUTS = 507,
     BIP377_ERR_REVERSED_EXPRESSION_RANGE = 508,
     BIP377_ERR_SESSION_REF_WITHOUT_ID = 509,
-    BIP377_ERR_UNREADABLE_REQUEST_ID = 510
+    BIP377_ERR_UNREADABLE_REQUEST_ID = 510,
+    BIP377_ERR_NUMBERED_STABLE_RELEASE = 511
 };
 
 /* A borrowed run of items. A NULL ptr means the field is absent, which is distinct
@@ -342,8 +343,9 @@ typedef struct {
 typedef struct {
     uint16_t major;
     uint16_t minor;
-    uint32_t patch; /* at most 0x00ffffff */
-    uint8_t flag;   /* BIP377_RELEASE_* */
+    uint16_t patch;
+    uint8_t channel; /* BIP377_RELEASE_* */
+    uint8_t number;  /* the channel's number, 0 for BIP377_RELEASE_STABLE */
 } bip377_firmware_version;
 
 typedef struct {

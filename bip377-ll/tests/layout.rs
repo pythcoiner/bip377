@@ -48,7 +48,7 @@ fn the_c_mirror_matches_the_header() {
         UnregisterDescriptor => 8, 8;
         RequestBody => 64, 8;
         Request => 72, 8;
-        FirmwareVersion => 12, 4;
+        FirmwareVersion => 8, 2;
         Keys => 56, 8;
         Info => 48, 8;
         Registration => 32, 8;
@@ -91,6 +91,6 @@ fn the_c_mirror_matches_the_header() {
     assert_eq!(offset_of!(SpKeys, scan_kind), 24);
     assert_eq!(offset_of!(SpKeys, scan), 32);
     assert_eq!(offset_of!(Info, version), 16);
-    assert_eq!(offset_of!(Info, max_message), 36);
-    assert_eq!(offset_of!(Info, fingerprint), 42);
+    assert_eq!(offset_of!(Info, max_message), 32);
+    assert_eq!(offset_of!(Info, fingerprint), 38);
 }

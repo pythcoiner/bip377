@@ -467,10 +467,8 @@ fn read_secret_key(reader: &mut Reader<'_>) -> Result<SecretKey, Error> {
 fn read_version(reader: &mut Reader<'_>) -> Result<response::FirmwareVersion, Error> {
     let major = reader.take_u16_be()?;
     let minor = reader.take_u16_be()?;
-    let patch = ((reader.take_u8()? as u32) << 16)
-        | ((reader.take_u8()? as u32) << 8)
-        | reader.take_u8()? as u32;
-    let flag = response::ReleaseFlag::from(reader.take_u8()?);
+    let patch = reader.take_u16_be()?;
+    let flag = response::ReleaseFlag::try_from([reader.take_u8()?, reader.take_u8()?])?;
     Ok(response::FirmwareVersion {
         major,
         minor,

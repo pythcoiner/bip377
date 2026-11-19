@@ -54,8 +54,8 @@ fn keys_response(capabilities: u32) -> Response {
             version: response::FirmwareVersion {
                 major: 1,
                 minor: 7,
-                patch: 0x00ab_cdef,
-                flag: response::ReleaseFlag::ReleaseCandidate,
+                patch: 0xabcd,
+                flag: response::ReleaseFlag::ReleaseCandidate(1),
             },
             capabilities: response::Capabilities(capabilities),
         }),
@@ -422,7 +422,6 @@ fn every_error_message_is_terminated_and_uniquely_coded() {
     ];
     let encode_errors = [
         encode::Error::PathTooLong(0),
-        encode::Error::PatchTooLarge(0),
         encode::Error::ReservedCapabilityBits(0),
         encode::Error::ErrorCodeOutOfRange(0),
         encode::Error::StringTooLong { len: 0, max: 0 },
@@ -440,6 +439,7 @@ fn every_error_message_is_terminated_and_uniquely_coded() {
         Invalid::MissingSpShare,
         Invalid::MaxAliasTooLarge(0),
         Invalid::FingerprintWhenNotReady,
+        Invalid::NumberedStableRelease(0),
         Invalid::TaprootSignatureLength(0),
         Invalid::ZeroMaxInputs,
         Invalid::ReversedExpressionRange,
@@ -675,31 +675,57 @@ fn every_error_code_round_trips() {
 
 #[test]
 fn every_release_flag_round_trips() {
-    for (flag, value) in [
-        (response::ReleaseFlag::Stable, 0x00),
-        (response::ReleaseFlag::Alpha, 0x01),
-        (response::ReleaseFlag::Beta, 0x02),
-        (response::ReleaseFlag::ReleaseCandidate, 0x03),
-        (response::ReleaseFlag::Unknown(0x04), 0x04),
-        (response::ReleaseFlag::Unknown(0xff), 0xff),
+    for (flag, bytes) in [
+        (response::ReleaseFlag::Stable, [0x00, 0x00]),
+        (response::ReleaseFlag::Alpha(1), [0x01, 0x01]),
+        (response::ReleaseFlag::Beta(2), [0x02, 0x02]),
+        (response::ReleaseFlag::ReleaseCandidate(3), [0x03, 0x03]),
+        (
+            response::ReleaseFlag::Unknown {
+                channel: 0x04,
+                number: 5,
+            },
+            [0x04, 0x05],
+        ),
+        (
+            response::ReleaseFlag::Unknown {
+                channel: 0xff,
+                number: 0xff,
+            },
+            [0xff, 0xff],
+        ),
     ] {
-        assert_eq!(flag.value(), value);
-        assert_eq!(response::ReleaseFlag::from(value), flag);
+        assert_eq!(flag.bytes(), bytes);
+        assert_eq!(response::ReleaseFlag::try_from(bytes), Ok(flag));
         let response = keys_response_with_flag(flag);
-        let bytes = encode_response(&response).unwrap();
-        assert_eq!(decode(&bytes), Ok(Message::Response(response)));
+        let encoded = encode_response(&response).unwrap();
+        assert_eq!(decode(&encoded), Ok(Message::Response(response)));
     }
 }
 
 #[test]
-fn encode_rejects_an_unknown_release_flag_of_a_defined_value() {
-    for value in [0x00, 0x01, 0x02, 0x03] {
-        let response = keys_response_with_flag(response::ReleaseFlag::Unknown(value));
+fn encode_rejects_an_unknown_release_flag_of_a_defined_channel() {
+    for channel in [0x00, 0x01, 0x02, 0x03] {
+        let response =
+            keys_response_with_flag(response::ReleaseFlag::Unknown { channel, number: 1 });
         assert_eq!(
             encode_response(&response),
-            Err(encode::Error::DefinedReleaseFlag(value))
+            Err(encode::Error::DefinedReleaseFlag(channel))
         );
     }
+}
+
+#[test]
+fn decode_rejects_a_stable_release_flag_with_a_number() {
+    let response = keys_response_with_flag(response::ReleaseFlag::Alpha(1));
+    let mut bytes = encode_response(&response).unwrap();
+    // the FLAG channel sits before its number and the 4-byte CAPABILITIES
+    let channel = bytes.len() - 6;
+    bytes[channel] = 0x00;
+    assert_eq!(
+        decode(&bytes),
+        Err(decode::Error::Invalid(Invalid::NumberedStableRelease(1)))
+    );
 }
 
 fn keys_response_with_flag(flag: response::ReleaseFlag) -> Response {
@@ -986,7 +1012,7 @@ mod get_info_response {
             version: response::FirmwareVersion {
                 major: 1,
                 minor: 7,
-                patch: 0x00ab_cdef,
+                patch: 0xabcd,
                 flag: response::ReleaseFlag::Stable,
             },
             capabilities: response::Capabilities(0x0000_00ff),

@@ -55,45 +55,50 @@ pub struct Keys {
 pub struct FirmwareVersion {
     pub major: u16,
     pub minor: u16,
-    pub patch: u32,
+    pub patch: u16,
     pub flag: ReleaseFlag,
 }
 
+/// A pre-release channel and its number, the two `FLAG` bytes. A stable release has
+/// no number.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ReleaseFlag {
     Stable,
-    Alpha,
-    Beta,
-    ReleaseCandidate,
-    Unknown(u8),
+    Alpha(u8),
+    Beta(u8),
+    ReleaseCandidate(u8),
+    Unknown { channel: u8, number: u8 },
 }
 
 impl ReleaseFlag {
-    pub fn value(self) -> u8 {
+    pub fn bytes(self) -> [u8; 2] {
         self.into()
     }
 }
 
-impl From<ReleaseFlag> for u8 {
+impl From<ReleaseFlag> for [u8; 2] {
     fn from(flag: ReleaseFlag) -> Self {
         match flag {
-            ReleaseFlag::Stable => 0x00,
-            ReleaseFlag::Alpha => 0x01,
-            ReleaseFlag::Beta => 0x02,
-            ReleaseFlag::ReleaseCandidate => 0x03,
-            ReleaseFlag::Unknown(value) => value,
+            ReleaseFlag::Stable => [0x00, 0x00],
+            ReleaseFlag::Alpha(number) => [0x01, number],
+            ReleaseFlag::Beta(number) => [0x02, number],
+            ReleaseFlag::ReleaseCandidate(number) => [0x03, number],
+            ReleaseFlag::Unknown { channel, number } => [channel, number],
         }
     }
 }
 
-impl From<u8> for ReleaseFlag {
-    fn from(value: u8) -> Self {
-        match value {
-            0x00 => Self::Stable,
-            0x01 => Self::Alpha,
-            0x02 => Self::Beta,
-            0x03 => Self::ReleaseCandidate,
-            value => Self::Unknown(value),
+impl TryFrom<[u8; 2]> for ReleaseFlag {
+    type Error = Invalid;
+
+    fn try_from([channel, number]: [u8; 2]) -> Result<Self, Self::Error> {
+        match channel {
+            0x00 if number != 0 => Err(Invalid::NumberedStableRelease(number)),
+            0x00 => Ok(Self::Stable),
+            0x01 => Ok(Self::Alpha(number)),
+            0x02 => Ok(Self::Beta(number)),
+            0x03 => Ok(Self::ReleaseCandidate(number)),
+            channel => Ok(Self::Unknown { channel, number }),
         }
     }
 }

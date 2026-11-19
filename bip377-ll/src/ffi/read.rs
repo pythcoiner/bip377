@@ -66,7 +66,7 @@ unsafe fn info(view: &types::Info) -> Result<response::Info, Error> {
     Ok(response::Info {
         vendor: string(view.vendor)?,
         model: string(view.model)?,
-        version: firmware_version(&view.version),
+        version: firmware_version(&view.version)?,
         capabilities: response::Capabilities(view.capabilities),
         state: view.state.into(),
         networks: response::Networks(view.networks),
@@ -88,18 +88,19 @@ unsafe fn keys(view: &types::Keys) -> Result<response::Keys, Error> {
         fingerprint: Fingerprint(view.fingerprint),
         vendor: string(view.vendor)?,
         model: string(view.model)?,
-        version: firmware_version(&view.version),
+        version: firmware_version(&view.version)?,
         capabilities: response::Capabilities(view.capabilities),
     })
 }
 
-fn firmware_version(view: &types::FirmwareVersion) -> response::FirmwareVersion {
-    response::FirmwareVersion {
+fn firmware_version(view: &types::FirmwareVersion) -> Result<response::FirmwareVersion, Error> {
+    Ok(response::FirmwareVersion {
         major: view.major,
         minor: view.minor,
         patch: view.patch,
-        flag: view.flag.into(),
-    }
+        flag: response::ReleaseFlag::try_from([view.channel, view.number])
+            .map_err(|_| Error::UnknownTag)?,
+    })
 }
 
 unsafe fn registration(view: &types::Registration) -> Result<response::Registration, Error> {

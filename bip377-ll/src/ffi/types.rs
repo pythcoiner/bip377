@@ -235,9 +235,11 @@ pub struct Keys {
 pub struct FirmwareVersion {
     pub major: u16,
     pub minor: u16,
-    pub patch: u32,
-    /// A `ReleaseFlag` wire code.
-    pub flag: u8,
+    pub patch: u16,
+    /// A `ReleaseFlag` pre-release channel wire code.
+    pub channel: u8,
+    /// The number of that channel, `0` when it is stable.
+    pub number: u8,
 }
 
 #[repr(C)]
