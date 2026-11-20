@@ -186,17 +186,18 @@ pub enum Message {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
 pub enum MessageType {
     /// Only in an error response to `RequestId::UNREADABLE_REQUEST`, see
     /// `Response::unreadable_request`.
-    UnreadableRequest,
-    GetInfo,
-    GetKeys,
-    RegisterDescriptor,
-    AddressVerification,
-    Signing,
-    NoncePreparation,
-    UnregisterDescriptor,
+    UnreadableRequest = 0x00,
+    GetInfo = 0x01,
+    GetKeys = 0x02,
+    RegisterDescriptor = 0x03,
+    AddressVerification = 0x04,
+    Signing = 0x05,
+    NoncePreparation = 0x06,
+    UnregisterDescriptor = 0x07,
 }
 
 impl MessageType {
@@ -207,16 +208,7 @@ impl MessageType {
 
 impl From<MessageType> for u8 {
     fn from(message_type: MessageType) -> Self {
-        match message_type {
-            MessageType::UnreadableRequest => 0x00,
-            MessageType::GetInfo => 0x01,
-            MessageType::GetKeys => 0x02,
-            MessageType::RegisterDescriptor => 0x03,
-            MessageType::AddressVerification => 0x04,
-            MessageType::Signing => 0x05,
-            MessageType::NoncePreparation => 0x06,
-            MessageType::UnregisterDescriptor => 0x07,
-        }
+        message_type as u8
     }
 }
 
