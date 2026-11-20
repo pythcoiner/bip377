@@ -97,76 +97,70 @@ pub fn decode(bytes: &[u8]) -> Result<Message, Error> {
         return Err(Error::ErrorStatusOnRequest);
     }
     let id = RequestId(reader.take_array()?);
-    // The error flag is already known to be clear on a request.
-    let decoded = match (response, error, message_type) {
-        (false, _, MessageType::GetInfo) => Message::Request(Request {
-            id,
-            body: request::Body::GetInfo,
-        }),
-        (false, _, MessageType::GetKeys) => Message::Request(Request {
-            id,
-            body: request::Body::GetKeys(read_get_keys_request(&mut reader)?),
-        }),
-        (false, _, MessageType::RegisterDescriptor) => Message::Request(Request {
-            id,
-            body: request::Body::RegisterDescriptor(read_register_request(&mut reader)?),
-        }),
-        (false, _, MessageType::AddressVerification) => Message::Request(Request {
-            id,
-            body: request::Body::VerifyAddress(read_verify_address_request(&mut reader)?),
-        }),
-        (false, _, MessageType::Signing) => Message::Request(Request {
-            id,
-            body: request::Body::Sign(read_sign_request(&mut reader)?),
-        }),
-        (false, _, MessageType::NoncePreparation) => Message::Request(Request {
-            id,
-            body: request::Body::PrepareNonces(read_prepare_nonces(&mut reader)?),
-        }),
-        (false, _, MessageType::UnregisterDescriptor) => Message::Request(Request {
-            id,
-            body: request::Body::UnregisterDescriptor(read_unregister_request(&mut reader)?),
-        }),
-        (true, true, _) => {
-            let response = Response {
-                id,
-                body: response::Body::Error(read_error_response(&mut reader, message_type)?),
-            };
-            response.validate()?;
-            Message::Response(response)
+    if response {
+        decode_response(&mut reader, id, error, message_type).map(Message::Response)
+    } else {
+        decode_request(&mut reader, id, message_type).map(Message::Request)
+    }
+}
+
+fn decode_request(
+    reader: &mut Reader<'_>,
+    id: RequestId,
+    message_type: MessageType,
+) -> Result<Request, Error> {
+    let body = match message_type {
+        MessageType::UnreadableRequest => return Err(Error::UnreadableRequestType),
+        MessageType::GetInfo => request::Body::GetInfo,
+        MessageType::GetKeys => request::Body::GetKeys(read_get_keys_request(reader)?),
+        MessageType::RegisterDescriptor => {
+            request::Body::RegisterDescriptor(read_register_request(reader)?)
         }
-        // after the error response arm, so only a request or an ok response reaches it
-        (_, _, MessageType::UnreadableRequest) => return Err(Error::UnreadableRequestType),
-        (true, false, MessageType::GetInfo) => Message::Response(Response {
-            id,
-            body: response::Body::Info(read_info_response(&mut reader)?),
-        }),
-        (true, false, MessageType::GetKeys) => Message::Response(Response {
-            id,
-            body: response::Body::Keys(read_keys_response(&mut reader)?),
-        }),
-        (true, false, MessageType::RegisterDescriptor) => Message::Response(Response {
-            id,
-            body: response::Body::Registration(read_registration_response(&mut reader)?),
-        }),
-        (true, false, MessageType::AddressVerification) => Message::Response(Response {
-            id,
-            body: response::Body::AddressUri(read_address_response(&mut reader)?),
-        }),
-        (true, false, MessageType::Signing) => Message::Response(Response {
-            id,
-            body: response::Body::Signed(read_signed_response(&mut reader)?),
-        }),
-        (true, false, MessageType::NoncePreparation) => Message::Response(Response {
-            id,
-            body: response::Body::NoncesPrepared(read_nonces_prepared(&mut reader)?),
-        }),
-        (true, false, MessageType::UnregisterDescriptor) => Message::Response(Response {
-            id,
-            body: response::Body::Unregistered(read_unregistered_response(&mut reader)?),
-        }),
+        MessageType::AddressVerification => {
+            request::Body::VerifyAddress(read_verify_address_request(reader)?)
+        }
+        MessageType::Signing => request::Body::Sign(read_sign_request(reader)?),
+        MessageType::NoncePreparation => request::Body::PrepareNonces(read_prepare_nonces(reader)?),
+        MessageType::UnregisterDescriptor => {
+            request::Body::UnregisterDescriptor(read_unregister_request(reader)?)
+        }
     };
-    Ok(decoded)
+    Ok(Request { id, body })
+}
+
+fn decode_response(
+    reader: &mut Reader<'_>,
+    id: RequestId,
+    error: bool,
+    message_type: MessageType,
+) -> Result<Response, Error> {
+    if error {
+        let response = Response {
+            id,
+            body: response::Body::Error(read_error_response(reader, message_type)?),
+        };
+        response.validate()?;
+        return Ok(response);
+    }
+    let body = match message_type {
+        MessageType::UnreadableRequest => return Err(Error::UnreadableRequestType),
+        MessageType::GetInfo => response::Body::Info(read_info_response(reader)?),
+        MessageType::GetKeys => response::Body::Keys(read_keys_response(reader)?),
+        MessageType::RegisterDescriptor => {
+            response::Body::Registration(read_registration_response(reader)?)
+        }
+        MessageType::AddressVerification => {
+            response::Body::AddressUri(read_address_response(reader)?)
+        }
+        MessageType::Signing => response::Body::Signed(read_signed_response(reader)?),
+        MessageType::NoncePreparation => {
+            response::Body::NoncesPrepared(read_nonces_prepared(reader)?)
+        }
+        MessageType::UnregisterDescriptor => {
+            response::Body::Unregistered(read_unregistered_response(reader)?)
+        }
+    };
+    Ok(Response { id, body })
 }
 
 fn read_magic(reader: &mut Reader<'_>) -> Result<(), Error> {
