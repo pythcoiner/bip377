@@ -30,7 +30,7 @@
     },
     {
       "name": "error_response_unsupported_operation",
-      "description": "Error response to an Address Verification request: MSG_TYPE 0xc4 is response, error, TYPE 0x04. ERROR is 0x0e (unsupported operation), a silent payment address sent to a signer without capability bit 2, and ERROR_MESSAGE is \"silent payments not supported\".",
+      "description": "Error response to an Address Verification request: MSG_TYPE 0xc4 is response, error, TYPE 0x04. ERROR is 0x0e (unsupported operation), a request needing a capability the signer does not advertise, and ERROR_MESSAGE is \"silent payments not supported\".",
       "direction": "response",
       "hex": "42495033373701c400010e1d73696c656e74207061796d656e7473206e6f7420737570706f72746564",
       "decode_only": false
