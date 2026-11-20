@@ -18,9 +18,8 @@ pub const ECDSA_SIGNATURE_MAX_LEN: usize = 73;
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct DerivationPath(pub Vec<u32>);
 
-/// The 78-byte BIP-32 serialization of an extended public or private key, the form
-/// BIP-32 base58-encodes. A private one carries `0x00 || 32-byte key` in place of the
-/// 33-byte public key, and its own version bytes, so both have the same length.
+/// The 78-byte BIP-32 serialization of an extended public key, the form BIP-32
+/// base58-encodes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ExtendedKey(pub [u8; EXTENDED_KEY_LEN]);
 

@@ -77,6 +77,9 @@ unsafe fn info(view: &types::Info) -> Result<response::Info, Error> {
 }
 
 unsafe fn keys(view: &types::Keys) -> Result<response::Keys, Error> {
+    if view.keys.is_absent() {
+        return Err(Error::NullPointer);
+    }
     Ok(response::Keys {
         keys: view
             .keys
@@ -99,7 +102,7 @@ fn firmware_version(view: &types::FirmwareVersion) -> Result<response::FirmwareV
         minor: view.minor,
         patch: view.patch,
         flag: response::ReleaseFlag::try_from([view.channel, view.number])
-            .map_err(|_| Error::UnknownTag)?,
+            .map_err(Error::Invalid)?,
     })
 }
 
@@ -116,6 +119,9 @@ unsafe fn signed(view: &types::Signed) -> Result<response::Signed, Error> {
     match SignResponseKind::try_from(view.kind).map_err(|_| Error::UnknownTag)? {
         SignResponseKind::Psbt => Ok(response::Signed::Psbt(bytes(view.value.psbt)?)),
         SignResponseKind::Signatures => {
+            if view.value.signatures.is_absent() {
+                return Err(Error::NullPointer);
+            }
             let mut entries = Vec::new();
             for entry in view.value.signatures.as_slice() {
                 entries.push(signature(entry)?);

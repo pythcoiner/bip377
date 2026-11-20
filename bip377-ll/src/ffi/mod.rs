@@ -18,7 +18,7 @@ pub mod types;
 use alloc::boxed::Box;
 use core::{ffi::c_char, ptr, slice};
 
-use crate::{ErrorInfo, Message};
+use crate::{ErrorInfo, Invalid, Message};
 
 pub const OK: i32 = 0;
 
@@ -31,6 +31,8 @@ pub enum Error {
     UnknownTag,
     UnexpectedResponse,
     GlobalInputIndex,
+    /// A protocol rule the C struct breaks, reported under its own code.
+    Invalid(Invalid),
 }
 
 impl Error {
@@ -45,6 +47,7 @@ impl Error {
             Self::GlobalInputIndex => {
                 error_info!(407, "global silent payment entry has a nonzero input index")
             }
+            Self::Invalid(error) => error.info(),
         }
     }
 }

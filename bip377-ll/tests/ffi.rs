@@ -619,6 +619,56 @@ fn keys_response_encodes() {
 }
 
 #[test]
+fn encode_rejects_absent_keys_and_signatures() {
+    unsafe {
+        let absent = types::List {
+            ptr: ptr::null(),
+            len: 0,
+        };
+        let mut view = response_view(
+            MessageType::GetKeys.value(),
+            false,
+            types::ResponseBody {
+                keys: types::Keys {
+                    keys: absent,
+                    fingerprint: [0xde, 0xad, 0xbe, 0xef],
+                    vendor: c"bip".as_ptr(),
+                    model: c"bip-signer".as_ptr(),
+                    version: types::FirmwareVersion {
+                        major: 1,
+                        minor: 7,
+                        patch: 0xabcd,
+                        channel: 0x00,
+                        number: 0,
+                    },
+                    capabilities: 0,
+                },
+            },
+        );
+        assert_eq!(encode_failure(&view), Error::NullPointer.info_owned());
+        view.body.keys.keys.len = 2;
+        assert_eq!(encode_failure(&view), Error::NullPointer.info_owned());
+
+        let view = signatures_view(&[]);
+        let view = types::Response {
+            body: types::ResponseBody {
+                signed: types::Signed {
+                    kind: SignResponseKind::Signatures.value(),
+                    value: types::SignedValue {
+                        signatures: types::List {
+                            ptr: ptr::null(),
+                            len: 1,
+                        },
+                    },
+                },
+            },
+            ..view
+        };
+        assert_eq!(encode_failure(&view), Error::NullPointer.info_owned());
+    }
+}
+
+#[test]
 fn get_info_request_view() {
     unsafe {
         let view = view(&request(request::Body::GetInfo));
@@ -688,6 +738,19 @@ fn info_response_encodes() {
         assert_eq!(
             encoded(&info_view(response::State::Locked.value(), 0, 32)),
             expected(response::State::Locked, None)
+        );
+    }
+}
+
+#[test]
+fn info_encode_rejects_a_numbered_stable_release_under_its_own_code() {
+    unsafe {
+        let mut view = info_view(response::State::Ready.value(), 1, 32);
+        view.body.info.version.channel = 0x00;
+        view.body.info.version.number = 1;
+        assert_eq!(
+            encode_failure(&view),
+            Invalid::NumberedStableRelease(1).info_owned()
         );
     }
 }

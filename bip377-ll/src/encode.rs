@@ -27,6 +27,7 @@ pub enum Error {
     ReservedNetworkBits(u8),
     DefinedState(u8),
     DefinedReleaseFlag(u8),
+    UnreadableRequestError(u8),
 }
 
 impl Error {
@@ -54,6 +55,9 @@ impl Error {
             Self::DefinedReleaseFlag(_) => {
                 error_info!(313, "unknown release flag uses a defined value")
             }
+            Self::UnreadableRequestError(_) => {
+                error_info!(314, "unreadable request reply must carry ERROR 0x03")
+            }
         }
     }
 }
@@ -74,6 +78,14 @@ pub fn encode_request(request: &Request) -> Result<Vec<u8>, Error> {
 
 pub fn encode_response(response: &Response) -> Result<Vec<u8>, Error> {
     response.validate()?;
+    // only the signer is bound to answer 0x03, so the decoder does not check it
+    if let response::Body::Error(body) = &response.body {
+        if body.message_type == MessageType::UnreadableRequest
+            && body.error != response::Error::MalformedRequest
+        {
+            return Err(Error::UnreadableRequestError(body.error.value()));
+        }
+    }
     let status = matches!(response.body, response::Body::Error(_));
     let mut out = envelope(response.body.message_type(), true, status, response.id);
     encode_response_body(&mut out, &response.body)?;

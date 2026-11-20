@@ -197,6 +197,34 @@ fn encode_rejects_an_unreadable_request_with_another_id() {
     );
 }
 
+/// An unreadable request reply carrying ERROR 0x01 (user declined) instead of 0x03.
+fn unreadable_request_declined() -> Response {
+    let mut response = Response::unreadable_request("unreadable".to_string());
+    if let response::Body::Error(body) = &mut response.body {
+        body.error = response::Error::UserDeclined;
+    }
+    response
+}
+
+#[test]
+fn encode_rejects_an_unreadable_request_reply_without_error_0x03() {
+    assert_eq!(
+        encode_response(&unreadable_request_declined()),
+        Err(encode::Error::UnreadableRequestError(0x01))
+    );
+}
+
+#[test]
+fn decode_accepts_an_unreadable_request_reply_without_error_0x03() {
+    let mut bytes =
+        encode_response(&Response::unreadable_request("unreadable".to_string())).unwrap();
+    bytes[HEADER_LEN] = 0x01;
+    assert_eq!(
+        decode(&bytes),
+        Ok(Message::Response(unreadable_request_declined()))
+    );
+}
+
 #[test]
 fn decode_rejects_the_unreadable_request_type_on_a_request() {
     let mut bytes = encode_request(&get_keys_request()).unwrap();
@@ -431,6 +459,7 @@ fn every_error_message_is_terminated_and_uniquely_coded() {
         encode::Error::ReservedNetworkBits(0),
         encode::Error::DefinedState(0),
         encode::Error::DefinedReleaseFlag(0),
+        encode::Error::UnreadableRequestError(0),
     ];
     let invalid_errors = [
         Invalid::DuplicateSpShare,
