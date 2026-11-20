@@ -51,9 +51,9 @@ fn optional<T>(has: u8, value: T) -> Option<T> {
 
 unsafe fn descriptor_body(view: *const types::DescriptorBody) -> Option<DescriptorBody> {
     let view = unsafe { view.as_ref() }?;
-    Some(match view.tag {
-        request::DESCRIPTOR_BIP380 => DescriptorBody::Bip380(unsafe { string(view.value.bip380) }),
-        request::DESCRIPTOR_BIP388 => {
+    Some(match request::DescriptorForm::try_from(view.tag).expect("a known descriptor tag") {
+        request::DescriptorForm::Bip380 => DescriptorBody::Bip380(unsafe { string(view.value.bip380) }),
+        request::DescriptorForm::Bip388 => {
             let bip388 = unsafe { view.value.bip388 };
             DescriptorBody::Bip388 {
                 keys: unsafe { bip388.keys.as_slice() }
@@ -63,7 +63,7 @@ unsafe fn descriptor_body(view: *const types::DescriptorBody) -> Option<Descript
                 policy: unsafe { string(bip388.policy) },
             }
         }
-        request::DESCRIPTOR_SP_KEYS => {
+        request::DescriptorForm::SpKeys => {
             let keys = unsafe { view.value.sp_keys };
             DescriptorBody::SpKeys(SpKeys {
                 fingerprint: Fingerprint(keys.fingerprint),
@@ -75,7 +75,6 @@ unsafe fn descriptor_body(view: *const types::DescriptorBody) -> Option<Descript
                 },
             })
         }
-        tag => panic!("descriptor tag {tag}"),
     })
 }
 

@@ -5,10 +5,6 @@ use crate::{
     types::{DerivationPath, Fingerprint, SecretKey},
 };
 
-pub const DESCRIPTOR_BIP380: u8 = 0x01;
-pub const DESCRIPTOR_BIP388: u8 = 0x02;
-pub const DESCRIPTOR_SP_KEYS: u8 = 0x03;
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Body {
     GetInfo,
@@ -113,6 +109,16 @@ impl PrepareNonces {
     }
 }
 
+wire_enum! {
+    /// The `FORM` of a descriptor body.
+    pub enum DescriptorForm {
+        Bip380 = 0x01,
+        Bip388 = 0x02,
+        SpKeys = 0x03,
+        _ => Err(crate::decode::Error::UnknownDescriptorForm),
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DescriptorBody {
     Bip380(String),
@@ -142,9 +148,9 @@ pub enum Scan {
 impl DescriptorBody {
     pub fn value(&self) -> u8 {
         match self {
-            Self::Bip380(_) => DESCRIPTOR_BIP380,
-            Self::Bip388 { .. } => DESCRIPTOR_BIP388,
-            Self::SpKeys(_) => DESCRIPTOR_SP_KEYS,
+            Self::Bip380(_) => DescriptorForm::Bip380.value(),
+            Self::Bip388 { .. } => DescriptorForm::Bip388.value(),
+            Self::SpKeys(_) => DescriptorForm::SpKeys.value(),
         }
     }
 }

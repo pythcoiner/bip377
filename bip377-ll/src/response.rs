@@ -8,18 +8,6 @@ use crate::{
     },
 };
 
-pub const STATE_READY: u8 = 0x00;
-pub const STATE_LOCKED: u8 = 0x01;
-pub const STATE_UNINITIALIZED: u8 = 0x02;
-
-pub const SIGNATURE_ECDSA: u8 = 0x01;
-pub const SIGNATURE_TAP_KEY: u8 = 0x02;
-pub const SIGNATURE_TAP_SCRIPT: u8 = 0x03;
-pub const SIGNATURE_MUSIG_PUB_NONCE: u8 = 0x04;
-pub const SIGNATURE_MUSIG_PARTIAL_SIG: u8 = 0x05;
-pub const SIGNATURE_SP_ECDH_SHARE: u8 = 0x06;
-pub const SIGNATURE_SP_DLEQ_PROOF: u8 = 0x07;
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Body {
     Info(Info),
@@ -219,9 +207,9 @@ impl Info {
 wire_enum! {
     /// An unknown value counts as not ready.
     pub enum State {
-        Ready = STATE_READY,
-        Locked = STATE_LOCKED,
-        Uninitialized = STATE_UNINITIALIZED,
+        Ready = 0x00,
+        Locked = 0x01,
+        Uninitialized = 0x02,
         _ => Unknown,
     }
 }
@@ -275,6 +263,20 @@ pub enum Signed {
     /// A serialized PSBT v0 or v2, carried without being parsed.
     Psbt(Vec<u8>),
     Signatures(Vec<SignatureEntry>),
+}
+
+wire_enum! {
+    /// The `SIG_KIND` of a signature entry.
+    pub enum SignatureKind {
+        Ecdsa = 0x01,
+        TapKey = 0x02,
+        TapScript = 0x03,
+        MusigPubNonce = 0x04,
+        MusigPartialSig = 0x05,
+        SpEcdhShare = 0x06,
+        SpDleqProof = 0x07,
+        _ => Unknown,
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -332,13 +334,13 @@ pub enum SignatureEntry {
 impl SignatureEntry {
     pub fn value(&self) -> u8 {
         match self {
-            Self::Ecdsa { .. } => SIGNATURE_ECDSA,
-            Self::TapKey { .. } => SIGNATURE_TAP_KEY,
-            Self::TapScript { .. } => SIGNATURE_TAP_SCRIPT,
-            Self::MusigPubNonce { .. } => SIGNATURE_MUSIG_PUB_NONCE,
-            Self::MusigPartialSig { .. } => SIGNATURE_MUSIG_PARTIAL_SIG,
-            Self::SpEcdhShare { .. } => SIGNATURE_SP_ECDH_SHARE,
-            Self::SpDleqProof { .. } => SIGNATURE_SP_DLEQ_PROOF,
+            Self::Ecdsa { .. } => SignatureKind::Ecdsa.value(),
+            Self::TapKey { .. } => SignatureKind::TapKey.value(),
+            Self::TapScript { .. } => SignatureKind::TapScript.value(),
+            Self::MusigPubNonce { .. } => SignatureKind::MusigPubNonce.value(),
+            Self::MusigPartialSig { .. } => SignatureKind::MusigPartialSig.value(),
+            Self::SpEcdhShare { .. } => SignatureKind::SpEcdhShare.value(),
+            Self::SpDleqProof { .. } => SignatureKind::SpDleqProof.value(),
             Self::Unknown { kind, .. } => *kind,
         }
     }

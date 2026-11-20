@@ -87,7 +87,10 @@ fn nonce_preparation_request_exposes_its_descriptor() {
         let handle = view(&request);
         let descriptor = *(*handle).body.prepare_nonces.descriptor;
         assert_eq!(text(descriptor.alias), "main");
-        assert_eq!((*descriptor.body).tag, request::DESCRIPTOR_BIP388);
+        assert_eq!(
+            (*descriptor.body).tag,
+            request::DescriptorForm::Bip388.value()
+        );
         assert_eq!(descriptor.proof.as_slice(), &[1, 2, 3]);
         bip377_request_free(handle);
     }
@@ -283,7 +286,10 @@ fn register_descriptor_bip380_view() {
         let view = view(&request);
         let body = (*view).body.register_descriptor;
         assert_eq!(text(body.descriptor_alias), "main");
-        assert_eq!((*body.descriptor).tag, request::DESCRIPTOR_BIP380);
+        assert_eq!(
+            (*body.descriptor).tag,
+            request::DescriptorForm::Bip380.value()
+        );
         assert_eq!(
             text((*body.descriptor).value.bip380),
             "wpkh([00000000/84h/1h/0h]xpub/0/*)"
@@ -298,7 +304,7 @@ fn register_descriptor_bip388_view() {
         let request = register_descriptor_request(Some(bip388()));
         let view = view(&request);
         let descriptor = (*view).body.register_descriptor.descriptor;
-        assert_eq!((*descriptor).tag, request::DESCRIPTOR_BIP388);
+        assert_eq!((*descriptor).tag, request::DescriptorForm::Bip388.value());
         let bip388 = (*descriptor).value.bip388;
         let keys = bip388.keys.as_slice();
         assert_eq!(keys.len(), 2);
@@ -316,7 +322,10 @@ fn register_descriptor_sp_keys_view() {
         let view = view(&request);
         let body = (*view).body.register_descriptor;
         assert_eq!(text(body.descriptor_alias), "main");
-        assert_eq!((*body.descriptor).tag, request::DESCRIPTOR_SP_KEYS);
+        assert_eq!(
+            (*body.descriptor).tag,
+            request::DescriptorForm::SpKeys.value()
+        );
         let keys = (*body.descriptor).value.sp_keys;
         assert_eq!(keys.fingerprint, [0x73, 0xc5, 0xda, 0x0a]);
         assert_eq!(
@@ -398,7 +407,7 @@ fn verify_address_view_with_silent_payment_keys() {
         let body = (*view).body.verify_address;
         assert!(body.derivation_path.as_slice().is_empty());
         let descriptor = body.descriptor;
-        assert_eq!((*descriptor).tag, request::DESCRIPTOR_SP_KEYS);
+        assert_eq!((*descriptor).tag, request::DescriptorForm::SpKeys.value());
         let keys = (*descriptor).value.sp_keys;
         assert_eq!(keys.fingerprint, [0x73, 0xc5, 0xda, 0x0a]);
         assert_eq!(
@@ -427,7 +436,10 @@ fn verify_address_view_with_silent_payment_keys_and_a_proof() {
         let view = view(&request);
         let body = (*view).body.verify_address;
         assert_eq!(text(body.descriptor_alias), "main");
-        assert_eq!((*body.descriptor).tag, request::DESCRIPTOR_SP_KEYS);
+        assert_eq!(
+            (*body.descriptor).tag,
+            request::DescriptorForm::SpKeys.value()
+        );
         assert_eq!(body.proof.as_slice(), &[0x5a; 4]);
         bip377_request_free(view);
     }
@@ -447,7 +459,7 @@ fn verify_address_view_with_a_foreign_scan_key() {
         let body = (*view).body.verify_address;
         assert_eq!(body.derivation_path.as_slice(), &[2]);
         let descriptor = body.descriptor;
-        assert_eq!((*descriptor).tag, request::DESCRIPTOR_SP_KEYS);
+        assert_eq!((*descriptor).tag, request::DescriptorForm::SpKeys.value());
         let keys = (*descriptor).value.sp_keys;
         assert_eq!(keys.fingerprint, [0x73, 0xc5, 0xda, 0x0a]);
         assert_eq!(
@@ -526,10 +538,16 @@ fn sign_request_view() {
         let descriptors = body.descriptors.as_slice();
         assert_eq!(descriptors.len(), 2);
         assert_eq!(text(descriptors[0].alias), "main");
-        assert_eq!((*descriptors[0].body).tag, request::DESCRIPTOR_BIP380);
+        assert_eq!(
+            (*descriptors[0].body).tag,
+            request::DescriptorForm::Bip380.value()
+        );
         assert_eq!(descriptors[0].proof.as_slice(), &[1, 2, 3]);
         assert_eq!(text(descriptors[1].alias), "backup");
-        assert_eq!((*descriptors[1].body).tag, request::DESCRIPTOR_BIP388);
+        assert_eq!(
+            (*descriptors[1].body).tag,
+            request::DescriptorForm::Bip388.value()
+        );
         assert!(descriptors[1].proof.is_absent());
         assert_eq!(body.psbt.as_slice(), &[0x70, 0x73, 0x62, 0x74, 0xff]);
         assert_eq!(body.want_kind, SignResponseKind::Signatures.value() as i16);
@@ -660,7 +678,7 @@ fn info_response_encodes() {
             }),
         };
         assert_eq!(
-            encoded(&info_view(response::STATE_READY, 1, 32)),
+            encoded(&info_view(response::State::Ready.value(), 1, 32)),
             expected(
                 response::State::Ready,
                 Some(Fingerprint([0xde, 0xad, 0xbe, 0xef]))
@@ -668,7 +686,7 @@ fn info_response_encodes() {
         );
         // the fingerprint bytes are ignored when has_fingerprint is 0
         assert_eq!(
-            encoded(&info_view(response::STATE_LOCKED, 0, 32)),
+            encoded(&info_view(response::State::Locked.value(), 0, 32)),
             expected(response::State::Locked, None)
         );
     }
@@ -677,7 +695,7 @@ fn info_response_encodes() {
 #[test]
 fn info_encode_rejects_an_invalid_fingerprint_presence() {
     unsafe {
-        let view = info_view(response::STATE_READY, 2, 32);
+        let view = info_view(response::State::Ready.value(), 2, 32);
         assert_eq!(encode_failure(&view), Error::InvalidBool.info_owned());
     }
 }
@@ -685,7 +703,11 @@ fn info_encode_rejects_an_invalid_fingerprint_presence() {
 #[test]
 fn info_encode_rejects_a_fingerprint_when_not_ready() {
     unsafe {
-        for state in [response::STATE_LOCKED, response::STATE_UNINITIALIZED, 0x03] {
+        for state in [
+            response::State::Locked.value(),
+            response::State::Uninitialized.value(),
+            0x03,
+        ] {
             let view = info_view(state, 1, 32);
             assert_eq!(
                 encode_failure(&view),
@@ -698,7 +720,7 @@ fn info_encode_rejects_a_fingerprint_when_not_ready() {
 #[test]
 fn info_encode_rejects_a_max_alias_above_the_alias_bound() {
     unsafe {
-        let view = info_view(response::STATE_READY, 1, 33);
+        let view = info_view(response::State::Ready.value(), 1, 33);
         assert_eq!(
             encode_failure(&view),
             Invalid::MaxAliasTooLarge(33).info_owned()
@@ -709,7 +731,7 @@ fn info_encode_rejects_a_max_alias_above_the_alias_bound() {
 #[test]
 fn info_encode_rejects_reserved_network_bits() {
     unsafe {
-        let mut view = info_view(response::STATE_READY, 1, 32);
+        let mut view = info_view(response::State::Ready.value(), 1, 32);
         for networks in [0x01, 0x80] {
             view.body.info.networks = networks;
             assert_eq!(
@@ -868,7 +890,7 @@ fn signed_signatures_response_encodes_every_kind() {
         let entries = [
             types::Signature {
                 input_index: 0,
-                kind: response::SIGNATURE_ECDSA,
+                kind: response::SignatureKind::Ecdsa.value(),
                 value: types::SignatureValue {
                     ecdsa: types::Ecdsa {
                         public_key: [0x02; 33],
@@ -878,7 +900,7 @@ fn signed_signatures_response_encodes_every_kind() {
             },
             types::Signature {
                 input_index: 1,
-                kind: response::SIGNATURE_TAP_KEY,
+                kind: response::SignatureKind::TapKey.value(),
                 value: types::SignatureValue {
                     tap_key: types::TapKey {
                         signature: list_view(&tap_key_sig),
@@ -887,7 +909,7 @@ fn signed_signatures_response_encodes_every_kind() {
             },
             types::Signature {
                 input_index: 2,
-                kind: response::SIGNATURE_TAP_SCRIPT,
+                kind: response::SignatureKind::TapScript.value(),
                 value: types::SignatureValue {
                     tap_script: types::TapScript {
                         xonly_public_key: [0x05; 32],
@@ -898,7 +920,7 @@ fn signed_signatures_response_encodes_every_kind() {
             },
             types::Signature {
                 input_index: 3,
-                kind: response::SIGNATURE_MUSIG_PUB_NONCE,
+                kind: response::SignatureKind::MusigPubNonce.value(),
                 value: types::SignatureValue {
                     musig_pub_nonce: types::MusigPubNonce {
                         participant: [0x07; 33],
@@ -911,7 +933,7 @@ fn signed_signatures_response_encodes_every_kind() {
             },
             types::Signature {
                 input_index: 4,
-                kind: response::SIGNATURE_MUSIG_PARTIAL_SIG,
+                kind: response::SignatureKind::MusigPartialSig.value(),
                 value: types::SignatureValue {
                     musig_partial_sig: types::MusigPartialSig {
                         participant: [0x0a; 33],
@@ -924,7 +946,7 @@ fn signed_signatures_response_encodes_every_kind() {
             },
             types::Signature {
                 input_index: 0,
-                kind: response::SIGNATURE_SP_ECDH_SHARE,
+                kind: response::SignatureKind::SpEcdhShare.value(),
                 value: types::SignatureValue {
                     sp_ecdh_share: types::SpEcdhShare {
                         global: 1,
@@ -935,7 +957,7 @@ fn signed_signatures_response_encodes_every_kind() {
             },
             types::Signature {
                 input_index: 0,
-                kind: response::SIGNATURE_SP_DLEQ_PROOF,
+                kind: response::SignatureKind::SpDleqProof.value(),
                 value: types::SignatureValue {
                     sp_dleq_proof: types::SpDleqProof {
                         global: 1,
@@ -946,7 +968,7 @@ fn signed_signatures_response_encodes_every_kind() {
             },
             types::Signature {
                 input_index: 5,
-                kind: response::SIGNATURE_SP_ECDH_SHARE,
+                kind: response::SignatureKind::SpEcdhShare.value(),
                 value: types::SignatureValue {
                     sp_ecdh_share: types::SpEcdhShare {
                         global: 0,
@@ -957,7 +979,7 @@ fn signed_signatures_response_encodes_every_kind() {
             },
             types::Signature {
                 input_index: 5,
-                kind: response::SIGNATURE_SP_DLEQ_PROOF,
+                kind: response::SignatureKind::SpDleqProof.value(),
                 value: types::SignatureValue {
                     sp_dleq_proof: types::SpDleqProof {
                         global: 0,
@@ -1196,7 +1218,7 @@ fn encode_rejects_a_taproot_signature_of_another_length() {
             let entries = [
                 types::Signature {
                     input_index: 0,
-                    kind: response::SIGNATURE_TAP_KEY,
+                    kind: response::SignatureKind::TapKey.value(),
                     value: types::SignatureValue {
                         tap_key: types::TapKey {
                             signature: list_view(signature),
@@ -1205,7 +1227,7 @@ fn encode_rejects_a_taproot_signature_of_another_length() {
                 },
                 types::Signature {
                     input_index: 1,
-                    kind: response::SIGNATURE_TAP_SCRIPT,
+                    kind: response::SignatureKind::TapScript.value(),
                     value: types::SignatureValue {
                         tap_script: types::TapScript {
                             xonly_public_key: [0x05; 32],
@@ -1229,7 +1251,7 @@ fn encode_rejects_a_taproot_signature_of_another_length() {
 fn sp_share_view(input_index: u32, global: u8) -> types::Signature {
     types::Signature {
         input_index,
-        kind: response::SIGNATURE_SP_ECDH_SHARE,
+        kind: response::SignatureKind::SpEcdhShare.value(),
         value: types::SignatureValue {
             sp_ecdh_share: types::SpEcdhShare {
                 global,
@@ -1272,7 +1294,7 @@ fn encode_rejects_an_invalid_leaf_hash_presence() {
     unsafe {
         let entries = [types::Signature {
             input_index: 0,
-            kind: response::SIGNATURE_MUSIG_PUB_NONCE,
+            kind: response::SignatureKind::MusigPubNonce.value(),
             value: types::SignatureValue {
                 musig_pub_nonce: types::MusigPubNonce {
                     participant: [0x02; 33],

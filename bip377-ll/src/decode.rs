@@ -362,15 +362,18 @@ fn read_descriptor(reader: &mut Reader<'_>) -> Result<request::Descriptor, Error
 }
 
 fn read_descriptor_body(reader: &mut Reader<'_>) -> Result<request::DescriptorBody, Error> {
-    match reader.take_u8()? {
-        request::DESCRIPTOR_BIP380 => Ok(request::DescriptorBody::Bip380(reader.take_string()?)),
-        request::DESCRIPTOR_BIP388 => {
+    match request::DescriptorForm::try_from(reader.take_u8()?)? {
+        request::DescriptorForm::Bip380 => {
+            Ok(request::DescriptorBody::Bip380(reader.take_string()?))
+        }
+        request::DescriptorForm::Bip388 => {
             let keys = reader.take_vec(Reader::take_string)?;
             let policy = reader.take_string()?;
             Ok(request::DescriptorBody::Bip388 { keys, policy })
         }
-        request::DESCRIPTOR_SP_KEYS => Ok(request::DescriptorBody::SpKeys(read_sp_keys(reader)?)),
-        value => Err(Error::UnknownDescriptorForm(value)),
+        request::DescriptorForm::SpKeys => {
+            Ok(request::DescriptorBody::SpKeys(read_sp_keys(reader)?))
+        }
     }
 }
 
@@ -418,8 +421,8 @@ fn read_signature_fields(
     input_index: u32,
     kind: u8,
 ) -> Result<response::SignatureEntry, Error> {
-    match kind {
-        response::SIGNATURE_ECDSA => {
+    match response::SignatureKind::from(kind) {
+        response::SignatureKind::Ecdsa => {
             let public_key = read_pubkey(reader)?;
             let signature = reader.take_bytes()?;
             Ok(response::SignatureEntry::Ecdsa {
@@ -428,11 +431,11 @@ fn read_signature_fields(
                 signature,
             })
         }
-        response::SIGNATURE_TAP_KEY => Ok(response::SignatureEntry::TapKey {
+        response::SignatureKind::TapKey => Ok(response::SignatureEntry::TapKey {
             input_index,
             signature: reader.take_bytes()?,
         }),
-        response::SIGNATURE_TAP_SCRIPT => {
+        response::SignatureKind::TapScript => {
             let xonly_public_key = reader.take_array()?;
             let tap_leaf_hash = reader.take_array()?;
             let signature = reader.take_bytes()?;
@@ -443,7 +446,7 @@ fn read_signature_fields(
                 signature,
             })
         }
-        response::SIGNATURE_MUSIG_PUB_NONCE => {
+        response::SignatureKind::MusigPubNonce => {
             let participant = read_pubkey(reader)?;
             let aggregate = read_pubkey(reader)?;
             let leaf_hash = reader.take_option(|r| r.take_array())?;
@@ -456,7 +459,7 @@ fn read_signature_fields(
                 nonce,
             })
         }
-        response::SIGNATURE_MUSIG_PARTIAL_SIG => {
+        response::SignatureKind::MusigPartialSig => {
             let participant = read_pubkey(reader)?;
             let aggregate = read_pubkey(reader)?;
             let leaf_hash = reader.take_option(|r| r.take_array())?;
@@ -469,7 +472,7 @@ fn read_signature_fields(
                 signature,
             })
         }
-        response::SIGNATURE_SP_ECDH_SHARE => {
+        response::SignatureKind::SpEcdhShare => {
             let scope = read_sp_scope(reader, input_index)?;
             let scan_key = read_pubkey(reader)?;
             let share = read_pubkey(reader)?;
@@ -479,7 +482,7 @@ fn read_signature_fields(
                 share,
             })
         }
-        response::SIGNATURE_SP_DLEQ_PROOF => {
+        response::SignatureKind::SpDleqProof => {
             let scope = read_sp_scope(reader, input_index)?;
             let scan_key = read_pubkey(reader)?;
             let proof = reader.take_array()?;
@@ -489,7 +492,7 @@ fn read_signature_fields(
                 proof,
             })
         }
-        kind => Ok(response::SignatureEntry::Unknown {
+        response::SignatureKind::Unknown(kind) => Ok(response::SignatureEntry::Unknown {
             input_index,
             kind,
             fields: reader.take_rest().to_vec(),

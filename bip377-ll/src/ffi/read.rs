@@ -127,23 +127,23 @@ unsafe fn signed(view: &types::Signed) -> Result<response::Signed, Error> {
 
 unsafe fn signature(view: &types::Signature) -> Result<response::SignatureEntry, Error> {
     let input_index = view.input_index;
-    match view.kind {
-        response::SIGNATURE_ECDSA => Ok(response::SignatureEntry::Ecdsa {
+    match response::SignatureKind::from(view.kind) {
+        response::SignatureKind::Ecdsa => Ok(response::SignatureEntry::Ecdsa {
             input_index,
             public_key: PublicKey(view.value.ecdsa.public_key),
             signature: bytes(view.value.ecdsa.signature)?,
         }),
-        response::SIGNATURE_TAP_KEY => Ok(response::SignatureEntry::TapKey {
+        response::SignatureKind::TapKey => Ok(response::SignatureEntry::TapKey {
             input_index,
             signature: bytes(view.value.tap_key.signature)?,
         }),
-        response::SIGNATURE_TAP_SCRIPT => Ok(response::SignatureEntry::TapScript {
+        response::SignatureKind::TapScript => Ok(response::SignatureEntry::TapScript {
             input_index,
             xonly_public_key: view.value.tap_script.xonly_public_key,
             tap_leaf_hash: view.value.tap_script.tap_leaf_hash,
             signature: bytes(view.value.tap_script.signature)?,
         }),
-        response::SIGNATURE_MUSIG_PUB_NONCE => {
+        response::SignatureKind::MusigPubNonce => {
             let value = view.value.musig_pub_nonce;
             Ok(response::SignatureEntry::MusigPubNonce {
                 input_index,
@@ -153,7 +153,7 @@ unsafe fn signature(view: &types::Signature) -> Result<response::SignatureEntry,
                 nonce: value.nonce,
             })
         }
-        response::SIGNATURE_MUSIG_PARTIAL_SIG => {
+        response::SignatureKind::MusigPartialSig => {
             let value = view.value.musig_partial_sig;
             Ok(response::SignatureEntry::MusigPartialSig {
                 input_index,
@@ -163,7 +163,7 @@ unsafe fn signature(view: &types::Signature) -> Result<response::SignatureEntry,
                 signature: value.signature,
             })
         }
-        response::SIGNATURE_SP_ECDH_SHARE => {
+        response::SignatureKind::SpEcdhShare => {
             let value = view.value.sp_ecdh_share;
             Ok(response::SignatureEntry::SpEcdhShare {
                 scope: sp_scope(value.global, input_index)?,
@@ -171,7 +171,7 @@ unsafe fn signature(view: &types::Signature) -> Result<response::SignatureEntry,
                 share: PublicKey(value.share),
             })
         }
-        response::SIGNATURE_SP_DLEQ_PROOF => {
+        response::SignatureKind::SpDleqProof => {
             let value = view.value.sp_dleq_proof;
             Ok(response::SignatureEntry::SpDleqProof {
                 scope: sp_scope(value.global, input_index)?,
@@ -179,7 +179,7 @@ unsafe fn signature(view: &types::Signature) -> Result<response::SignatureEntry,
                 proof: value.proof,
             })
         }
-        _ => Err(Error::UnknownTag),
+        response::SignatureKind::Unknown(_) => Err(Error::UnknownTag),
     }
 }
 

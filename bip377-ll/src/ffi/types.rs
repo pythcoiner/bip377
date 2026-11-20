@@ -160,8 +160,7 @@ pub struct PrepareNonces {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct DescriptorBody {
-    /// `DESCRIPTOR_BIP380`, `DESCRIPTOR_BIP388` or `DESCRIPTOR_SP_KEYS`, which selects
-    /// the `value` arm.
+    /// A `DescriptorForm` value, which selects the `value` arm.
     pub tag: u8,
     pub value: DescriptorValue,
 }
@@ -301,9 +300,7 @@ pub union SignedValue {
 pub struct Signature {
     /// Unused and `0` for a global silent payment entry.
     pub input_index: u32,
-    /// `SIGNATURE_ECDSA`, `SIGNATURE_TAP_KEY`, `SIGNATURE_TAP_SCRIPT`,
-    /// `SIGNATURE_MUSIG_PUB_NONCE`, `SIGNATURE_MUSIG_PARTIAL_SIG`,
-    /// `SIGNATURE_SP_ECDH_SHARE` or `SIGNATURE_SP_DLEQ_PROOF`.
+    /// A defined `SignatureKind` value, which selects the `value` arm.
     pub kind: u8,
     pub value: SignatureValue,
 }

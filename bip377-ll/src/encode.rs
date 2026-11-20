@@ -457,7 +457,9 @@ fn write_unknown_signature(
     let response::SignatureEntry::Unknown { kind, fields, .. } = entry else {
         return Err(Error::Unreachable);
     };
-    if *kind <= response::SIGNATURE_SP_DLEQ_PROOF {
+    if *kind == 0x00
+        || response::SignatureKind::from(*kind) != response::SignatureKind::Unknown(*kind)
+    {
         return Err(Error::DefinedSignatureKind(*kind));
     }
     out.extend_from_slice(fields);
@@ -512,7 +514,7 @@ fn write_capabilities(
 // `Unknown`.
 fn write_state(out: &mut Vec<u8>, state: response::State) -> Result<(), Error> {
     if let response::State::Unknown(value) = state {
-        if value <= response::STATE_UNINITIALIZED {
+        if response::State::from(value) != response::State::Unknown(value) {
             return Err(Error::DefinedState(value));
         }
     }
