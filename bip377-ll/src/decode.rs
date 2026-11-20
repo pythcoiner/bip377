@@ -177,9 +177,11 @@ fn read_get_keys_request(reader: &mut Reader<'_>) -> Result<request::GetKeys, Er
 }
 
 fn read_register_request(reader: &mut Reader<'_>) -> Result<request::RegisterDescriptor, Error> {
+    let descriptor_alias = read_descriptor_alias(reader)?;
+    let descriptor = reader.take_option(read_descriptor_body)?;
     Ok(request::RegisterDescriptor {
-        descriptor_alias: read_descriptor_alias(reader)?,
-        descriptor: reader.take_option(read_descriptor_body)?,
+        descriptor_alias,
+        descriptor,
     })
 }
 
@@ -192,33 +194,49 @@ fn read_unregister_request(
 }
 
 fn read_verify_address_request(reader: &mut Reader<'_>) -> Result<request::VerifyAddress, Error> {
+    let descriptor_alias = read_descriptor_alias(reader)?;
+    let derivation_path = read_path(reader)?;
+    let address = reader.take_option(Reader::take_string)?;
+    let descriptor = reader.take_option(read_descriptor_body)?;
+    let proof = reader.take_option(Reader::take_bytes)?;
     Ok(request::VerifyAddress {
-        descriptor_alias: read_descriptor_alias(reader)?,
-        derivation_path: read_path(reader)?,
-        address: reader.take_option(Reader::take_string)?,
-        descriptor: reader.take_option(read_descriptor_body)?,
-        proof: reader.take_option(Reader::take_bytes)?,
+        descriptor_alias,
+        derivation_path,
+        address,
+        descriptor,
+        proof,
     })
 }
 
 fn read_sign_request(reader: &mut Reader<'_>) -> Result<request::Sign, Error> {
+    let descriptors = reader.take_vec(read_descriptor)?;
+    let psbt = reader.take_bytes()?;
+    let want_kind = reader.take_option(read_want_kind)?.flatten();
+    let accept_trimmed = reader.take_bool()?;
     Ok(request::Sign {
-        descriptors: reader.take_vec(read_descriptor)?,
-        psbt: reader.take_bytes()?,
-        want_kind: reader.take_option(read_want_kind)?.flatten(),
-        accept_trimmed: reader.take_bool()?,
+        descriptors,
+        psbt,
+        want_kind,
+        accept_trimmed,
     })
 }
 
 fn read_prepare_nonces(reader: &mut Reader<'_>) -> Result<request::PrepareNonces, Error> {
+    let session_id = reader.take_option(|r| r.take_array())?;
+    let session_ref = reader.take_option(|r| r.take_array())?;
+    let descriptor = reader.take_option(read_descriptor)?;
+    let max_inputs = reader.take_u32_be()?;
+    let derivation_path = read_path(reader)?;
+    let start = reader.take_u32_be()?;
+    let end = reader.take_option(|r| r.take_u32_be())?;
     let request = request::PrepareNonces {
-        session_id: reader.take_option(|r| r.take_array())?,
-        session_ref: reader.take_option(|r| r.take_array())?,
-        descriptor: reader.take_option(read_descriptor)?,
-        max_inputs: reader.take_u32_be()?,
-        derivation_path: read_path(reader)?,
-        start: reader.take_u32_be()?,
-        end: reader.take_option(|r| r.take_u32_be())?,
+        session_id,
+        session_ref,
+        descriptor,
+        max_inputs,
+        derivation_path,
+        start,
+        end,
     };
     request.validate()?;
     Ok(request)
@@ -242,38 +260,57 @@ fn read_nonces_prepared(reader: &mut Reader<'_>) -> Result<response::NoncesPrepa
 }
 
 fn read_keys_response(reader: &mut Reader<'_>) -> Result<response::Keys, Error> {
+    let keys = reader.take_vec(read_extended_key)?;
+    let fingerprint = read_fingerprint(reader)?;
+    let vendor = reader.take_string()?;
+    let model = reader.take_string()?;
+    let version = read_version(reader)?;
+    let capabilities = read_capabilites(reader)?;
     Ok(response::Keys {
-        keys: reader.take_vec(read_extended_key)?,
-        fingerprint: read_fingerprint(reader)?,
-        vendor: reader.take_string()?,
-        model: reader.take_string()?,
-        version: read_version(reader)?,
-        capabilities: read_capabilites(reader)?,
+        keys,
+        fingerprint,
+        vendor,
+        model,
+        version,
+        capabilities,
     })
 }
 
 fn read_info_response(reader: &mut Reader<'_>) -> Result<response::Info, Error> {
+    let vendor = reader.take_string()?;
+    let model = reader.take_string()?;
+    let version = read_version(reader)?;
+    let capabilities = read_capabilites(reader)?;
+    let state = reader.take_u8()?.into();
+    let networks = response::Networks(reader.take_u8()?);
+    let max_message = reader.take_u32_be()?;
+    let max_alias = reader.take_u8()?;
+    let fingerprint = reader.take_option(read_fingerprint)?;
     let response = response::Info {
-        vendor: reader.take_string()?,
-        model: reader.take_string()?,
-        version: read_version(reader)?,
-        capabilities: read_capabilites(reader)?,
-        state: reader.take_u8()?.into(),
-        networks: response::Networks(reader.take_u8()?),
-        max_message: reader.take_u32_be()?,
-        max_alias: reader.take_u8()?,
-        fingerprint: reader.take_option(read_fingerprint)?,
+        vendor,
+        model,
+        version,
+        capabilities,
+        state,
+        networks,
+        max_message,
+        max_alias,
+        fingerprint,
     };
     response.validate()?;
     Ok(response)
 }
 
 fn read_registration_response(reader: &mut Reader<'_>) -> Result<response::Registration, Error> {
+    let descriptor_alias = read_descriptor_alias(reader)?;
+    let registered = reader.take_bool()?;
+    let stored = reader.take_option(Reader::take_bool)?;
+    let proof = reader.take_option(Reader::take_bytes)?;
     Ok(response::Registration {
-        descriptor_alias: read_descriptor_alias(reader)?,
-        registered: reader.take_bool()?,
-        stored: reader.take_option(Reader::take_bool)?,
-        proof: reader.take_option(Reader::take_bytes)?,
+        descriptor_alias,
+        registered,
+        stored,
+        proof,
     })
 }
 
@@ -304,38 +341,47 @@ fn read_error_response(
     reader: &mut Reader<'_>,
     message_type: MessageType,
 ) -> Result<response::ErrorBody, Error> {
+    let error = reader.take_u8()?.into();
+    let message = reader.take_string()?;
     Ok(response::ErrorBody {
         message_type,
-        error: reader.take_u8()?.into(),
-        message: reader.take_string()?,
+        error,
+        message,
     })
 }
 
 fn read_descriptor(reader: &mut Reader<'_>) -> Result<request::Descriptor, Error> {
+    let alias = read_descriptor_alias(reader)?;
+    let descriptor = reader.take_option(read_descriptor_body)?;
+    let proof = reader.take_option(Reader::take_bytes)?;
     Ok(request::Descriptor {
-        alias: read_descriptor_alias(reader)?,
-        descriptor: reader.take_option(read_descriptor_body)?,
-        proof: reader.take_option(Reader::take_bytes)?,
+        alias,
+        descriptor,
+        proof,
     })
 }
 
 fn read_descriptor_body(reader: &mut Reader<'_>) -> Result<request::DescriptorBody, Error> {
     match reader.take_u8()? {
         request::DESCRIPTOR_BIP380 => Ok(request::DescriptorBody::Bip380(reader.take_string()?)),
-        request::DESCRIPTOR_BIP388 => Ok(request::DescriptorBody::Bip388 {
-            keys: reader.take_vec(Reader::take_string)?,
-            policy: reader.take_string()?,
-        }),
+        request::DESCRIPTOR_BIP388 => {
+            let keys = reader.take_vec(Reader::take_string)?;
+            let policy = reader.take_string()?;
+            Ok(request::DescriptorBody::Bip388 { keys, policy })
+        }
         request::DESCRIPTOR_SP_KEYS => Ok(request::DescriptorBody::SpKeys(read_sp_keys(reader)?)),
         value => Err(Error::UnknownDescriptorForm(value)),
     }
 }
 
 fn read_sp_keys(reader: &mut Reader<'_>) -> Result<request::SpKeys, Error> {
+    let fingerprint = read_fingerprint(reader)?;
+    let spend_path = read_path(reader)?;
+    let scan = read_scan(reader)?;
     Ok(request::SpKeys {
-        fingerprint: read_fingerprint(reader)?,
-        spend_path: read_path(reader)?,
-        scan: read_scan(reader)?,
+        fingerprint,
+        spend_path,
+        scan,
     })
 }
 
@@ -373,45 +419,76 @@ fn read_signature_fields(
     kind: u8,
 ) -> Result<response::SignatureEntry, Error> {
     match kind {
-        response::SIGNATURE_ECDSA => Ok(response::SignatureEntry::Ecdsa {
-            input_index,
-            public_key: read_pubkey(reader)?,
-            signature: reader.take_bytes()?,
-        }),
+        response::SIGNATURE_ECDSA => {
+            let public_key = read_pubkey(reader)?;
+            let signature = reader.take_bytes()?;
+            Ok(response::SignatureEntry::Ecdsa {
+                input_index,
+                public_key,
+                signature,
+            })
+        }
         response::SIGNATURE_TAP_KEY => Ok(response::SignatureEntry::TapKey {
             input_index,
             signature: reader.take_bytes()?,
         }),
-        response::SIGNATURE_TAP_SCRIPT => Ok(response::SignatureEntry::TapScript {
-            input_index,
-            xonly_public_key: reader.take_array()?,
-            tap_leaf_hash: reader.take_array()?,
-            signature: reader.take_bytes()?,
-        }),
-        response::SIGNATURE_MUSIG_PUB_NONCE => Ok(response::SignatureEntry::MusigPubNonce {
-            input_index,
-            participant: read_pubkey(reader)?,
-            aggregate: read_pubkey(reader)?,
-            leaf_hash: reader.take_option(|r| r.take_array())?,
-            nonce: reader.take_array()?,
-        }),
-        response::SIGNATURE_MUSIG_PARTIAL_SIG => Ok(response::SignatureEntry::MusigPartialSig {
-            input_index,
-            participant: read_pubkey(reader)?,
-            aggregate: read_pubkey(reader)?,
-            leaf_hash: reader.take_option(|r| r.take_array())?,
-            signature: reader.take_array()?,
-        }),
-        response::SIGNATURE_SP_ECDH_SHARE => Ok(response::SignatureEntry::SpEcdhShare {
-            scope: read_sp_scope(reader, input_index)?,
-            scan_key: read_pubkey(reader)?,
-            share: read_pubkey(reader)?,
-        }),
-        response::SIGNATURE_SP_DLEQ_PROOF => Ok(response::SignatureEntry::SpDleqProof {
-            scope: read_sp_scope(reader, input_index)?,
-            scan_key: read_pubkey(reader)?,
-            proof: reader.take_array()?,
-        }),
+        response::SIGNATURE_TAP_SCRIPT => {
+            let xonly_public_key = reader.take_array()?;
+            let tap_leaf_hash = reader.take_array()?;
+            let signature = reader.take_bytes()?;
+            Ok(response::SignatureEntry::TapScript {
+                input_index,
+                xonly_public_key,
+                tap_leaf_hash,
+                signature,
+            })
+        }
+        response::SIGNATURE_MUSIG_PUB_NONCE => {
+            let participant = read_pubkey(reader)?;
+            let aggregate = read_pubkey(reader)?;
+            let leaf_hash = reader.take_option(|r| r.take_array())?;
+            let nonce = reader.take_array()?;
+            Ok(response::SignatureEntry::MusigPubNonce {
+                input_index,
+                participant,
+                aggregate,
+                leaf_hash,
+                nonce,
+            })
+        }
+        response::SIGNATURE_MUSIG_PARTIAL_SIG => {
+            let participant = read_pubkey(reader)?;
+            let aggregate = read_pubkey(reader)?;
+            let leaf_hash = reader.take_option(|r| r.take_array())?;
+            let signature = reader.take_array()?;
+            Ok(response::SignatureEntry::MusigPartialSig {
+                input_index,
+                participant,
+                aggregate,
+                leaf_hash,
+                signature,
+            })
+        }
+        response::SIGNATURE_SP_ECDH_SHARE => {
+            let scope = read_sp_scope(reader, input_index)?;
+            let scan_key = read_pubkey(reader)?;
+            let share = read_pubkey(reader)?;
+            Ok(response::SignatureEntry::SpEcdhShare {
+                scope,
+                scan_key,
+                share,
+            })
+        }
+        response::SIGNATURE_SP_DLEQ_PROOF => {
+            let scope = read_sp_scope(reader, input_index)?;
+            let scan_key = read_pubkey(reader)?;
+            let proof = reader.take_array()?;
+            Ok(response::SignatureEntry::SpDleqProof {
+                scope,
+                scan_key,
+                proof,
+            })
+        }
         kind => Ok(response::SignatureEntry::Unknown {
             input_index,
             kind,
@@ -462,7 +539,9 @@ fn read_version(reader: &mut Reader<'_>) -> Result<response::FirmwareVersion, Er
     let major = reader.take_u16_be()?;
     let minor = reader.take_u16_be()?;
     let patch = reader.take_u16_be()?;
-    let flag = response::ReleaseFlag::try_from([reader.take_u8()?, reader.take_u8()?])?;
+    let channel = reader.take_u8()?;
+    let number = reader.take_u8()?;
+    let flag = response::ReleaseFlag::try_from([channel, number])?;
     Ok(response::FirmwareVersion {
         major,
         minor,
