@@ -507,7 +507,8 @@ fn read_sp_scope(reader: &mut Reader<'_>, input_index: u32) -> Result<response::
 
 fn read_path(reader: &mut Reader<'_>) -> Result<DerivationPath, Error> {
     let count = reader.take_u8()? as usize;
-    let mut children = Vec::new();
+    // the count is one byte, so this allocates at most 255 children
+    let mut children = Vec::with_capacity(count);
     for _ in 0..count {
         children.push(reader.take_u32_be()?);
     }
