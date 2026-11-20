@@ -52,6 +52,87 @@ macro_rules! error_display {
     };
 }
 
+/// A one-byte wire field. Each value is written once, the conversions both ways follow.
+/// Ending the list with `_ => Err(path)`, decoding an unknown value fails with that
+/// `decode::Error` variant; ending it with `_ => Unknown`, it decodes to `Unknown(u8)`.
+macro_rules! wire_enum {
+    (
+        $(#[$meta:meta])*
+        $vis:vis enum $name:ident {
+            $($(#[$variant_meta:meta])* $variant:ident = $value:expr,)+
+            _ => Err($error:path) $(,)?
+        }
+    ) => {
+        $(#[$meta])*
+        #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+        #[repr(u8)]
+        $vis enum $name {
+            $($(#[$variant_meta])* $variant = $value,)+
+        }
+
+        impl $name {
+            pub fn value(self) -> u8 {
+                self.into()
+            }
+        }
+
+        impl From<$name> for u8 {
+            fn from(value: $name) -> Self {
+                value as u8
+            }
+        }
+
+        impl TryFrom<u8> for $name {
+            type Error = $crate::decode::Error;
+
+            fn try_from(value: u8) -> Result<Self, Self::Error> {
+                $(if value == $value {
+                    return Ok(Self::$variant);
+                })+
+                Err($error(value))
+            }
+        }
+    };
+    (
+        $(#[$meta:meta])*
+        $vis:vis enum $name:ident {
+            $($(#[$variant_meta:meta])* $variant:ident = $value:expr,)+
+            _ => Unknown $(,)?
+        }
+    ) => {
+        $(#[$meta])*
+        #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+        $vis enum $name {
+            $($(#[$variant_meta])* $variant,)+
+            Unknown(u8),
+        }
+
+        impl $name {
+            pub fn value(self) -> u8 {
+                self.into()
+            }
+        }
+
+        impl From<$name> for u8 {
+            fn from(value: $name) -> Self {
+                match value {
+                    $($name::$variant => $value,)+
+                    $name::Unknown(value) => value,
+                }
+            }
+        }
+
+        impl From<u8> for $name {
+            fn from(value: u8) -> Self {
+                $(if value == $value {
+                    return Self::$variant;
+                })+
+                Self::Unknown(value)
+            }
+        }
+    };
+}
+
 pub mod decode;
 pub mod encode;
 #[cfg(feature = "ffi")]
@@ -185,82 +266,28 @@ pub enum Message {
     Response(Response),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[repr(u8)]
-pub enum MessageType {
-    /// Only in an error response to `RequestId::UNREADABLE_REQUEST`, see
-    /// `Response::unreadable_request`.
-    UnreadableRequest = 0x00,
-    GetInfo = 0x01,
-    GetKeys = 0x02,
-    RegisterDescriptor = 0x03,
-    AddressVerification = 0x04,
-    Signing = 0x05,
-    NoncePreparation = 0x06,
-    UnregisterDescriptor = 0x07,
-}
-
-impl MessageType {
-    pub fn value(self) -> u8 {
-        self.into()
-    }
-}
-
-impl From<MessageType> for u8 {
-    fn from(message_type: MessageType) -> Self {
-        message_type as u8
-    }
-}
-
-impl TryFrom<u8> for MessageType {
-    type Error = decode::Error;
-
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        match value {
-            0x00 => Ok(Self::UnreadableRequest),
-            0x01 => Ok(Self::GetInfo),
-            0x02 => Ok(Self::GetKeys),
-            0x03 => Ok(Self::RegisterDescriptor),
-            0x04 => Ok(Self::AddressVerification),
-            0x05 => Ok(Self::Signing),
-            0x06 => Ok(Self::NoncePreparation),
-            0x07 => Ok(Self::UnregisterDescriptor),
-            _ => Err(decode::Error::UnknownMessageType(value)),
-        }
+wire_enum! {
+    pub enum MessageType {
+        /// Only in an error response to `RequestId::UNREADABLE_REQUEST`, see
+        /// `Response::unreadable_request`.
+        UnreadableRequest = 0x00,
+        GetInfo = 0x01,
+        GetKeys = 0x02,
+        RegisterDescriptor = 0x03,
+        AddressVerification = 0x04,
+        Signing = 0x05,
+        NoncePreparation = 0x06,
+        UnregisterDescriptor = 0x07,
+        _ => Err(decode::Error::UnknownMessageType),
     }
 }
 
 // Shared by both directions: a request asks for a kind, a response announces one.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum SignResponseKind {
-    Psbt,
-    Signatures,
-}
-
-impl SignResponseKind {
-    pub fn value(self) -> u8 {
-        self.into()
-    }
-}
-
-impl From<SignResponseKind> for u8 {
-    fn from(kind: SignResponseKind) -> Self {
-        match kind {
-            SignResponseKind::Psbt => 0x01,
-            SignResponseKind::Signatures => 0x02,
-        }
-    }
-}
-
-impl TryFrom<u8> for SignResponseKind {
-    type Error = decode::Error;
-
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        match value {
-            0x01 => Ok(Self::Psbt),
-            0x02 => Ok(Self::Signatures),
-            _ => Err(decode::Error::UnknownSignResponseKind(value)),
-        }
+wire_enum! {
+    pub enum SignResponseKind {
+        Psbt = 0x01,
+        Signatures = 0x02,
+        _ => Err(decode::Error::UnknownSignResponseKind),
     }
 }
 
