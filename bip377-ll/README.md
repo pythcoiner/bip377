@@ -56,7 +56,7 @@ Combiner.
 A signatures-only Signing response carries the BIP-375 ECDH shares and BIP-374 DLEQ
 proofs of a silent payment send as `SignatureEntry::{SpEcdhShare, SpDleqProof}`, each
 scoped to one input or to the whole transaction by `SpScope`. Both encode and decode
-reject a taproot signature that is not 64 or 65 bytes, a share without its proof, a
+reject an ECDSA signature above 73 bytes, a taproot signature that is not 64 or 65 bytes, a share without its proof, a
 proof without its share and a duplicate of either; checking that every scan key and
 eligible input is covered needs the PSBT, so it is the wallet's job. An entry of a
 kind the codec does not know decodes to `SignatureEntry::Unknown` with its raw

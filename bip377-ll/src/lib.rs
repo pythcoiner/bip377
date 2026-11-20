@@ -166,6 +166,7 @@ pub enum Invalid {
     FingerprintWhenNotReady,
     NumberedStableRelease(u8),
     TaprootSignatureLength(usize),
+    EcdsaSignatureLength(usize),
     ZeroMaxInputs,
     ReversedExpressionRange,
     SessionRefWithoutId,
@@ -208,6 +209,9 @@ impl Invalid {
             }
             Self::UnreadableRequestId => {
                 error_info!(510, "unreadable request reply must use request id 0x0000")
+            }
+            Self::EcdsaSignatureLength(_) => {
+                error_info!(512, "ECDSA signature exceeds 73 bytes")
             }
         }
     }

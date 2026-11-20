@@ -4,7 +4,7 @@ use bip377_ll::{
     Invalid, MAX_DESCRIPTOR_ALIAS, Message, MessageType, REQUEST_ID_LEN, Request, RequestId,
     Response, SignResponseKind, decode, encode, encode_request, encode_response, reader, request,
     response::{self, SpScope},
-    types::{Fingerprint, SCHNORR_SIGNATURE_LEN},
+    types::{ECDSA_SIGNATURE_MAX_LEN, Fingerprint, SCHNORR_SIGNATURE_LEN},
 };
 
 use common::{
@@ -441,6 +441,7 @@ fn every_error_message_is_terminated_and_uniquely_coded() {
         Invalid::FingerprintWhenNotReady,
         Invalid::NumberedStableRelease(0),
         Invalid::TaprootSignatureLength(0),
+        Invalid::EcdsaSignatureLength(0),
         Invalid::ZeroMaxInputs,
         Invalid::ReversedExpressionRange,
         Invalid::SessionRefWithoutId,
@@ -848,15 +849,43 @@ fn taproot_signatures_of_another_length_are_rejected_in_both_directions() {
     }
 }
 
-#[test]
-fn ecdsa_signatures_are_not_bound_to_a_length() {
-    let response = signatures_response(vec![response::SignatureEntry::Ecdsa {
+fn ecdsa_entry(signature: Vec<u8>) -> response::SignatureEntry {
+    response::SignatureEntry::Ecdsa {
         input_index: 0,
         public_key: xpub_key(),
-        signature: vec![0x30; 9],
-    }]);
-    let bytes = encode_response(&response).unwrap();
-    assert_eq!(decode(&bytes), Ok(Message::Response(response)));
+        signature,
+    }
+}
+
+#[test]
+fn ecdsa_signatures_up_to_73_bytes_round_trip() {
+    for len in [0, 9, ECDSA_SIGNATURE_MAX_LEN] {
+        let response = signatures_response(vec![ecdsa_entry(vec![0x30; len])]);
+        let bytes = encode_response(&response).unwrap();
+        assert_eq!(decode(&bytes), Ok(Message::Response(response)));
+    }
+}
+
+#[test]
+fn ecdsa_signatures_above_73_bytes_are_rejected_in_both_directions() {
+    let len = ECDSA_SIGNATURE_MAX_LEN + 1;
+    assert_eq!(
+        encode_response(&signatures_response(vec![ecdsa_entry(vec![0x30; len])])),
+        Err(encode::Error::Invalid(Invalid::EcdsaSignatureLength(len)))
+    );
+
+    // the encoder refuses it, so grow a 73-byte one by hand: the entry ends with its
+    // SIGNATURE, right after that SIGNATURE's LENGTH
+    let response = signatures_response(vec![ecdsa_entry(vec![0x30; len - 1])]);
+    let mut bytes = encode_response(&response).unwrap();
+    let signature = bytes.len() - (len - 1);
+    bytes[signature - 1] += 1;
+    bytes.push(0x30);
+    bytes[FIRST_ENTRY_OFFSET + ENTRY_HEADER_LEN - 1] += 1;
+    assert_eq!(
+        decode(&bytes),
+        Err(decode::Error::Invalid(Invalid::EcdsaSignatureLength(len)))
+    );
 }
 
 #[test]

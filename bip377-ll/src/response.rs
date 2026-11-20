@@ -3,8 +3,8 @@ use alloc::{string::String, vec::Vec};
 use crate::{
     Invalid, MAX_DESCRIPTOR_ALIAS, MessageType, sp,
     types::{
-        DLEQ_PROOF_LEN, ExtendedKey, Fingerprint, MUSIG_PARTIAL_SIG_LEN, MUSIG_PUB_NONCE_LEN,
-        PublicKey, SCHNORR_SIGNATURE_LEN,
+        DLEQ_PROOF_LEN, ECDSA_SIGNATURE_MAX_LEN, ExtendedKey, Fingerprint, MUSIG_PARTIAL_SIG_LEN,
+        MUSIG_PUB_NONCE_LEN, PublicKey, SCHNORR_SIGNATURE_LEN,
     },
 };
 
@@ -361,13 +361,18 @@ impl SignatureEntry {
     }
 
     pub fn validate(&self) -> Result<(), Invalid> {
-        let (Self::TapKey { signature, .. } | Self::TapScript { signature, .. }) = self else {
-            return Ok(());
-        };
-        if !(SCHNORR_SIGNATURE_LEN..=SCHNORR_SIGNATURE_LEN + 1).contains(&signature.len()) {
-            return Err(Invalid::TaprootSignatureLength(signature.len()));
+        match self {
+            Self::Ecdsa { signature, .. } if signature.len() > ECDSA_SIGNATURE_MAX_LEN => {
+                Err(Invalid::EcdsaSignatureLength(signature.len()))
+            }
+            Self::TapKey { signature, .. } | Self::TapScript { signature, .. }
+                if !(SCHNORR_SIGNATURE_LEN..=SCHNORR_SIGNATURE_LEN + 1)
+                    .contains(&signature.len()) =>
+            {
+                Err(Invalid::TaprootSignatureLength(signature.len()))
+            }
+            _ => Ok(()),
         }
-        Ok(())
     }
 }
 

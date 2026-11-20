@@ -11,6 +11,8 @@ pub const TAP_LEAF_HASH_LEN: usize = 32;
 pub const DLEQ_PROOF_LEN: usize = 64;
 /// A BIP-340 signature, which a sighash type byte may follow.
 pub const SCHNORR_SIGNATURE_LEN: usize = 64;
+/// A DER-encoded ECDSA signature (at most 72 bytes) followed by its sighash type byte.
+pub const ECDSA_SIGNATURE_MAX_LEN: usize = 73;
 
 /// BIP-32 child numbers with the hardened bit set, exactly as they sit on the wire.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
