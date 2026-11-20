@@ -7,13 +7,13 @@ use crate::{
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Body {
+    GetInfo,
     GetKeys(GetKeys),
     RegisterDescriptor(RegisterDescriptor),
     VerifyAddress(VerifyAddress),
     Sign(Sign),
     PrepareNonces(PrepareNonces),
     UnregisterDescriptor(UnregisterDescriptor),
-    GetInfo,
 }
 
 impl Body {

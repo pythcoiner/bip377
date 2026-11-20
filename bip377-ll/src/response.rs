@@ -10,13 +10,13 @@ use crate::{
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Body {
+    Info(Info),
     Keys(Keys),
     Registration(Registration),
     AddressUri(AddressUri),
     Signed(Signed),
     NoncesPrepared(NoncesPrepared),
     Unregistered(Unregistered),
-    Info(Info),
     Error(ErrorBody),
 }
 
