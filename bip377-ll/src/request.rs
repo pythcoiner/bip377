@@ -25,13 +25,13 @@ impl Body {
 impl From<&Body> for MessageType {
     fn from(body: &Body) -> Self {
         match body {
+            Body::GetInfo => Self::GetInfo,
             Body::GetKeys(_) => Self::GetKeys,
             Body::RegisterDescriptor(_) => Self::RegisterDescriptor,
             Body::VerifyAddress(_) => Self::AddressVerification,
             Body::Sign(_) => Self::Signing,
             Body::PrepareNonces(_) => Self::NoncePreparation,
             Body::UnregisterDescriptor(_) => Self::UnregisterDescriptor,
-            Body::GetInfo => Self::GetInfo,
         }
     }
 }

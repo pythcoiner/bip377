@@ -99,6 +99,7 @@ fn envelope(message_type: MessageType, response: bool, error: bool, id: RequestI
 
 fn encode_request_body(out: &mut Vec<u8>, body: &request::Body) -> Result<(), Error> {
     match body {
+        request::Body::GetInfo => Ok(()),
         request::Body::GetKeys(request) => encode_get_keys_request(out, request),
         request::Body::RegisterDescriptor(request) => {
             encode_register_descriptor_request(out, request)
@@ -109,12 +110,12 @@ fn encode_request_body(out: &mut Vec<u8>, body: &request::Body) -> Result<(), Er
         request::Body::UnregisterDescriptor(request) => {
             write_descriptor_alias(out, &request.descriptor_alias)
         }
-        request::Body::GetInfo => Ok(()),
     }
 }
 
 fn encode_response_body(out: &mut Vec<u8>, body: &response::Body) -> Result<(), Error> {
     match body {
+        response::Body::Info(response) => encode_info_response(out, response),
         response::Body::Keys(response) => encode_keys_response(out, response),
         response::Body::Registration(response) => encode_registration_response(out, response),
         response::Body::AddressUri(response) => encode_address_uri_response(out, response),
@@ -123,7 +124,6 @@ fn encode_response_body(out: &mut Vec<u8>, body: &response::Body) -> Result<(), 
         response::Body::Unregistered(response) => {
             write_descriptor_alias(out, &response.descriptor_alias)
         }
-        response::Body::Info(response) => encode_info_response(out, response),
         response::Body::Error(response) => encode_error_response(out, response),
     }
 }

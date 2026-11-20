@@ -99,6 +99,10 @@ pub fn decode(bytes: &[u8]) -> Result<Message, Error> {
     let id = RequestId(reader.take_array()?);
     // The error flag is already known to be clear on a request.
     let decoded = match (response, error, message_type) {
+        (false, _, MessageType::GetInfo) => Message::Request(Request {
+            id,
+            body: request::Body::GetInfo,
+        }),
         (false, _, MessageType::GetKeys) => Message::Request(Request {
             id,
             body: request::Body::GetKeys(read_get_keys_request(&mut reader)?),
@@ -123,10 +127,6 @@ pub fn decode(bytes: &[u8]) -> Result<Message, Error> {
             id,
             body: request::Body::UnregisterDescriptor(read_unregister_request(&mut reader)?),
         }),
-        (false, _, MessageType::GetInfo) => Message::Request(Request {
-            id,
-            body: request::Body::GetInfo,
-        }),
         (true, true, _) => {
             let response = Response {
                 id,
@@ -137,6 +137,10 @@ pub fn decode(bytes: &[u8]) -> Result<Message, Error> {
         }
         // after the error response arm, so only a request or an ok response reaches it
         (_, _, MessageType::UnreadableRequest) => return Err(Error::UnreadableRequestType),
+        (true, false, MessageType::GetInfo) => Message::Response(Response {
+            id,
+            body: response::Body::Info(read_info_response(&mut reader)?),
+        }),
         (true, false, MessageType::GetKeys) => Message::Response(Response {
             id,
             body: response::Body::Keys(read_keys_response(&mut reader)?),
@@ -160,10 +164,6 @@ pub fn decode(bytes: &[u8]) -> Result<Message, Error> {
         (true, false, MessageType::UnregisterDescriptor) => Message::Response(Response {
             id,
             body: response::Body::Unregistered(read_unregistered_response(&mut reader)?),
-        }),
-        (true, false, MessageType::GetInfo) => Message::Response(Response {
-            id,
-            body: response::Body::Info(read_info_response(&mut reader)?),
         }),
     };
     Ok(decoded)

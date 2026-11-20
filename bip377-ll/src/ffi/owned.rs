@@ -68,6 +68,7 @@ struct Keep {
 impl Keep {
     fn request_body(&mut self, body: &request::Body) -> Result<types::RequestBody, Error> {
         Ok(match body {
+            request::Body::GetInfo => unsafe { core::mem::zeroed() },
             request::Body::GetKeys(body) => types::RequestBody {
                 get_keys: types::GetKeys {
                     keys: self.path_list(&body.keys),
@@ -119,7 +120,6 @@ impl Keep {
             },
             // no arm describes an empty body, so C never reads the union
             // SAFETY: every arm is plain data or raw pointers, valid when zeroed
-            request::Body::GetInfo => unsafe { core::mem::zeroed() },
         })
     }
 
