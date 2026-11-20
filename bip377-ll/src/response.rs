@@ -8,6 +8,18 @@ use crate::{
     },
 };
 
+pub const STATE_READY: u8 = 0x00;
+pub const STATE_LOCKED: u8 = 0x01;
+pub const STATE_UNINITIALIZED: u8 = 0x02;
+
+pub const SIGNATURE_ECDSA: u8 = 0x01;
+pub const SIGNATURE_TAP_KEY: u8 = 0x02;
+pub const SIGNATURE_TAP_SCRIPT: u8 = 0x03;
+pub const SIGNATURE_MUSIG_PUB_NONCE: u8 = 0x04;
+pub const SIGNATURE_MUSIG_PARTIAL_SIG: u8 = 0x05;
+pub const SIGNATURE_SP_ECDH_SHARE: u8 = 0x06;
+pub const SIGNATURE_SP_DLEQ_PROOF: u8 = 0x07;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Body {
     Info(Info),
@@ -214,10 +226,6 @@ wire_enum! {
     }
 }
 
-pub const STATE_READY: u8 = 0x00;
-pub const STATE_LOCKED: u8 = 0x01;
-pub const STATE_UNINITIALIZED: u8 = 0x02;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Networks(pub u8);
 
@@ -385,14 +393,6 @@ impl SpScope {
         }
     }
 }
-
-pub const SIGNATURE_ECDSA: u8 = 0x01;
-pub const SIGNATURE_TAP_KEY: u8 = 0x02;
-pub const SIGNATURE_TAP_SCRIPT: u8 = 0x03;
-pub const SIGNATURE_MUSIG_PUB_NONCE: u8 = 0x04;
-pub const SIGNATURE_MUSIG_PARTIAL_SIG: u8 = 0x05;
-pub const SIGNATURE_SP_ECDH_SHARE: u8 = 0x06;
-pub const SIGNATURE_SP_DLEQ_PROOF: u8 = 0x07;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ErrorBody {

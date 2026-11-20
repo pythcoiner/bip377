@@ -5,6 +5,10 @@ use crate::{
     types::{DerivationPath, Fingerprint, SecretKey},
 };
 
+pub const DESCRIPTOR_BIP380: u8 = 0x01;
+pub const DESCRIPTOR_BIP388: u8 = 0x02;
+pub const DESCRIPTOR_SP_KEYS: u8 = 0x03;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Body {
     GetInfo,
@@ -144,7 +148,3 @@ impl DescriptorBody {
         }
     }
 }
-
-pub const DESCRIPTOR_BIP380: u8 = 0x01;
-pub const DESCRIPTOR_BIP388: u8 = 0x02;
-pub const DESCRIPTOR_SP_KEYS: u8 = 0x03;

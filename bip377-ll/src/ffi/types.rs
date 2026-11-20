@@ -11,6 +11,15 @@ use crate::{
     },
 };
 
+/// Absent for an `int8_t` tri-state field.
+pub const ABSENT_BOOL: i8 = -1;
+/// Absent for the `int16_t` signing response kind.
+pub const ABSENT_KIND: i16 = -1;
+/// `SpKeys::scan_kind` when the scan key is the signer's, at `scan.path`.
+pub const SCAN_PATH: u8 = 0x00;
+/// `SpKeys::scan_kind` when the request carries the scan private key in `scan.key`.
+pub const SCAN_KEY: u8 = 0x01;
+
 /// A borrowed run of `len` items. A null `ptr` means the field is absent, which is
 /// distinct from a present but empty run.
 #[repr(C)]
@@ -64,15 +73,6 @@ impl Path {
         }
     }
 }
-
-/// Absent for an `int8_t` tri-state field.
-pub const ABSENT_BOOL: i8 = -1;
-/// Absent for the `int16_t` signing response kind.
-pub const ABSENT_KIND: i16 = -1;
-/// `SpKeys::scan_kind` when the scan key is the signer's, at `scan.path`.
-pub const SCAN_PATH: u8 = 0x00;
-/// `SpKeys::scan_kind` when the request carries the scan private key in `scan.key`.
-pub const SCAN_KEY: u8 = 0x01;
 
 #[repr(C)]
 pub struct Request {

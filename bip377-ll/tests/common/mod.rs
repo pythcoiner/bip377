@@ -16,6 +16,12 @@ pub const XPUB_HEX: &str = "0488b21e000000000000000000873dff81c02f525623fd1fe516
 // its m/0' child, the same test vector's first hardened chain
 pub const CHILD_XPUB_HEX: &str = "0488b21e013442193e8000000047fdacbd0f1097043b78c63c20c34ef4ed9a111d980047ad16282c7ae6236141035a784662a4a20a65bf6aab9ae98a6c068a81c52e4b032c0fb5400c706cfccc56";
 
+// the scan private key of the BIP-352 test vectors' labelled receiver
+pub const FOREIGN_SCAN_KEY: [u8; SECRET_KEY_LEN] = [
+    0x0f, 0x69, 0x4e, 0x06, 0x80, 0x28, 0xa7, 0x17, 0xf8, 0xaf, 0x6b, 0x94, 0x11, 0xf9, 0xa1, 0x33,
+    0xdd, 0x35, 0x65, 0x25, 0x87, 0x14, 0xcc, 0x22, 0x65, 0x94, 0xb3, 0x4d, 0xb9, 0x0c, 0x1f, 0x2c,
+];
+
 pub fn from_hex(hex: &str) -> Vec<u8> {
     assert!(hex.len() % 2 == 0, "odd hex length");
     (0..hex.len())
@@ -65,12 +71,6 @@ pub fn sp_keys() -> request::DescriptorBody {
         0,
     ])))
 }
-
-// the scan private key of the BIP-352 test vectors' labelled receiver
-pub const FOREIGN_SCAN_KEY: [u8; SECRET_KEY_LEN] = [
-    0x0f, 0x69, 0x4e, 0x06, 0x80, 0x28, 0xa7, 0x17, 0xf8, 0xaf, 0x6b, 0x94, 0x11, 0xf9, 0xa1, 0x33,
-    0xdd, 0x35, 0x65, 0x25, 0x87, 0x14, 0xcc, 0x22, 0x65, 0x94, 0xb3, 0x4d, 0xb9, 0x0c, 0x1f, 0x2c,
-];
 
 // 73c5da0a, spend m/352'/1'/0'/0'/0, scan key FOREIGN_SCAN_KEY
 pub fn sp_foreign_scan_keys() -> request::DescriptorBody {

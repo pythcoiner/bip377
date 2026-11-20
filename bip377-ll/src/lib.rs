@@ -15,6 +15,16 @@
 
 extern crate alloc;
 
+const MAGIC: &[u8; 6] = b"BIP377";
+const VERSION: u8 = 1;
+const DIRECTION_RESPONSE: u8 = 0x80;
+const DIRECTION_REQUEST: u8 = 0x0;
+const STATUS_ERROR: u8 = 0x40;
+const STATUS_OK: u8 = 0x0;
+const TYPE_MASK: u8 = 0x3f;
+pub const REQUEST_ID_LEN: usize = 2;
+pub const MAX_DESCRIPTOR_ALIAS: usize = 32;
+
 pub type ErrorCode = i32;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -144,16 +154,6 @@ pub mod sp;
 pub mod types;
 
 use alloc::{string::String, vec::Vec};
-
-const MAGIC: &[u8; 6] = b"BIP377";
-const VERSION: u8 = 1;
-const DIRECTION_RESPONSE: u8 = 0x80;
-const DIRECTION_REQUEST: u8 = 0x0;
-const STATUS_ERROR: u8 = 0x40;
-const STATUS_OK: u8 = 0x0;
-const TYPE_MASK: u8 = 0x3f;
-pub const REQUEST_ID_LEN: usize = 2;
-pub const MAX_DESCRIPTOR_ALIAS: usize = 32;
 
 /// A protocol rule a message breaks, refused alike by the encoder and the decoder.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
