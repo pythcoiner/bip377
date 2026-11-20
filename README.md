@@ -1,9 +1,11 @@
 # bip377
 
-Rust implementation of draft BIP-377: the byte encoding of the messages a
+Rust implementation of draft [BIP-377](https://github.com/bitcoin/bips/pull/2353): the byte encoding of the messages a
 coordinator and a signer exchange (Get Info, Get Keys, Register Descriptor,
 Address Verification, Signing, Nonce Preparation, Unregister Descriptor). The
-format is specified in [ENCODING.md](ENCODING.md); the encoding is transport
+format is specified in BIP-377, except the nonce cache (Nonce Preparation and
+one-round MuSig2 Signing), which is ahead of the BIP and described in
+[NONCE_CACHE.md](NONCE_CACHE.md) until it lands there. The encoding is transport
 agnostic, so framing (BBQR) and QR rendering are out of scope.
 
 The codec is imported from bwk.
@@ -62,8 +64,9 @@ so each only compiles when the backend is that same release.
 
 [`test_vectors/`](test_vectors) holds the machine-checkable vectors of the
 specification, one JSON file per operation (see the Test Vectors section of
-[ENCODING.md](ENCODING.md) for their format). `bip377-ll/tests/vectors.rs` checks
-every one of them.
+[BIP-377](https://github.com/bitcoin/bips/pull/2353) for their format). `nonce_cache.json` and the nonce entries of `invalid.json`
+are ahead of the BIP (see [NONCE_CACHE.md](NONCE_CACHE.md)).
+`bip377-ll/tests/vectors.rs` checks every one of them.
 
 ## Development
 
@@ -84,4 +87,4 @@ MSRV: 1.88.
 
 ## License
 
-MIT, see [LICENSE](LICENSE). The specification text in ENCODING.md is BSD-2-Clause.
+MIT, see [LICENSE](LICENSE). The specification text in NONCE_CACHE.md is BSD-2-Clause.

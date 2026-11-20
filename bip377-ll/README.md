@@ -1,8 +1,9 @@
 # bip377-ll
 
 The binary codec for draft BIP-377, the signing message encoding between a
-coordinator and a signer. [ENCODING.md](../ENCODING.md) is the authoritative format; this crate
-implements it and nothing else. Framing (BBQR) and QR rendering are out of scope.
+coordinator and a signer. [BIP-377](https://github.com/bitcoin/bips/pull/2353) is the authoritative format, extended by the
+nonce cache in [NONCE_CACHE.md](../NONCE_CACHE.md) until it lands in the BIP; this
+crate implements it and nothing else. Framing (BBQR) and QR rendering are out of scope.
 
 The crate is `no_std` plus `alloc` and pulls no dependency in its default
 configuration, so a bare-metal signer can vendor it as-is. `bitcoin` types are
@@ -45,7 +46,8 @@ and decode check that the number of inputs is at least 1, that the range is orde
 and that a session reference comes with a session ID; decode also rejects a
 response carrying only one of the session ID and reference. Signing with a cached
 session is ordinary Signing, named inside the PSBT; the signer-side rules live in
-the nonce cache BIP draft.
+the nonce cache BIP draft. [NONCE_CACHE.md](../NONCE_CACHE.md) holds the
+BIP-377 side of it until it lands in the BIP.
 
 With `request::Sign::accept_trimmed` set, a `Signed::Psbt` answer may leave out
 fields of the request's PSBT, and the coordinator merges it back with the BIP-174
@@ -99,7 +101,7 @@ borrowed for the duration of the call only.
 
 The C functions return `BIP377_OK` on success or one of the C binding status codes
 from `include/bip377.h` on failure. These codes are not the wire `ERROR`
-field from `ENCODING.md`; they report local decode, encode, or FFI failures.
+field from BIP-377; they report local decode, encode, or FFI failures.
 
 ```
 +-------------------+------------------------+
