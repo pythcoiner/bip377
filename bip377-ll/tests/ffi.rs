@@ -1,4 +1,3 @@
-#![cfg(feature = "ffi")]
 // The helpers are unsafe fns over raw C pointers; their whole body is the unsafe context.
 #![allow(unsafe_op_in_unsafe_fn)]
 

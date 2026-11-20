@@ -1,11 +1,22 @@
-use alloc::{string::String, vec::Vec};
+use alloc::string::String;
+#[cfg(feature = "signer")]
+use alloc::vec::Vec;
 
 use crate::{
     DIRECTION_RESPONSE, ErrorInfo, Invalid, MAGIC, MAX_DESCRIPTOR_ALIAS, Message, MessageType,
     Request, RequestId, Response, STATUS_ERROR, SignResponseKind, TYPE_MASK,
     reader::{self, Reader},
-    request, response, sp,
-    types::{DerivationPath, ExtendedKey, Fingerprint, PublicKey, SecretKey},
+    types::Fingerprint,
+};
+#[cfg(feature = "signer")]
+use crate::{
+    request,
+    types::{DerivationPath, SecretKey},
+};
+#[cfg(feature = "coordinator")]
+use crate::{
+    response, sp,
+    types::{ExtendedKey, PublicKey},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -22,6 +33,9 @@ pub enum Error {
     NoScan,
     UnpairedSession,
     UnreadableRequestType,
+    /// The message's direction is left out by the crate features: a request without
+    /// `signer`, a response without `coordinator`.
+    DirectionDisabled,
     Invalid(Invalid),
     Read(reader::Error),
 }
@@ -61,6 +75,9 @@ impl Error {
             }
             Self::UnreadableRequestType => {
                 error_info!(213, "unreadable request type outside an error response")
+            }
+            Self::DirectionDisabled => {
+                error_info!(214, "message direction is disabled by the crate features")
             }
             Self::Invalid(error) => error.info(),
             Self::Read(inner) => inner.info(),
@@ -104,6 +121,12 @@ pub fn decode(bytes: &[u8]) -> Result<Message, Error> {
     }
 }
 
+#[cfg(not(feature = "signer"))]
+fn decode_request(_: &mut Reader<'_>, _: RequestId, _: MessageType) -> Result<Request, Error> {
+    Err(Error::DirectionDisabled)
+}
+
+#[cfg(feature = "signer")]
 fn decode_request(
     reader: &mut Reader<'_>,
     id: RequestId,
@@ -128,6 +151,17 @@ fn decode_request(
     Ok(Request { id, body })
 }
 
+#[cfg(not(feature = "coordinator"))]
+fn decode_response(
+    _: &mut Reader<'_>,
+    _: RequestId,
+    _: bool,
+    _: MessageType,
+) -> Result<Response, Error> {
+    Err(Error::DirectionDisabled)
+}
+
+#[cfg(feature = "coordinator")]
 fn decode_response(
     reader: &mut Reader<'_>,
     id: RequestId,
@@ -170,12 +204,14 @@ fn read_magic(reader: &mut Reader<'_>) -> Result<(), Error> {
     Ok(())
 }
 
+#[cfg(feature = "signer")]
 fn read_get_keys_request(reader: &mut Reader<'_>) -> Result<request::GetKeys, Error> {
     Ok(request::GetKeys {
         keys: reader.take_vec(read_path)?,
     })
 }
 
+#[cfg(feature = "signer")]
 fn read_register_request(reader: &mut Reader<'_>) -> Result<request::RegisterDescriptor, Error> {
     let descriptor_alias = read_descriptor_alias(reader)?;
     let descriptor = reader.take_option(read_descriptor_body)?;
@@ -185,6 +221,7 @@ fn read_register_request(reader: &mut Reader<'_>) -> Result<request::RegisterDes
     })
 }
 
+#[cfg(feature = "signer")]
 fn read_unregister_request(
     reader: &mut Reader<'_>,
 ) -> Result<request::UnregisterDescriptor, Error> {
@@ -193,6 +230,7 @@ fn read_unregister_request(
     })
 }
 
+#[cfg(feature = "signer")]
 fn read_verify_address_request(reader: &mut Reader<'_>) -> Result<request::VerifyAddress, Error> {
     let descriptor_alias = read_descriptor_alias(reader)?;
     let derivation_path = read_path(reader)?;
@@ -208,6 +246,7 @@ fn read_verify_address_request(reader: &mut Reader<'_>) -> Result<request::Verif
     })
 }
 
+#[cfg(feature = "signer")]
 fn read_sign_request(reader: &mut Reader<'_>) -> Result<request::Sign, Error> {
     let descriptors = reader.take_vec(read_descriptor)?;
     let psbt = reader.take_bytes()?;
@@ -221,6 +260,7 @@ fn read_sign_request(reader: &mut Reader<'_>) -> Result<request::Sign, Error> {
     })
 }
 
+#[cfg(feature = "signer")]
 fn read_prepare_nonces(reader: &mut Reader<'_>) -> Result<request::PrepareNonces, Error> {
     let session_id = reader.take_option(|r| r.take_array())?;
     let session_ref = reader.take_option(|r| r.take_array())?;
@@ -242,6 +282,7 @@ fn read_prepare_nonces(reader: &mut Reader<'_>) -> Result<request::PrepareNonces
     Ok(request)
 }
 
+#[cfg(feature = "coordinator")]
 fn read_nonces_prepared(reader: &mut Reader<'_>) -> Result<response::NoncesPrepared, Error> {
     let session_id = reader.take_option(|r| r.take_array())?;
     let session_ref = reader.take_option(|r| r.take_array())?;
@@ -259,6 +300,7 @@ fn read_nonces_prepared(reader: &mut Reader<'_>) -> Result<response::NoncesPrepa
     })
 }
 
+#[cfg(feature = "coordinator")]
 fn read_keys_response(reader: &mut Reader<'_>) -> Result<response::Keys, Error> {
     let keys = reader.take_vec(read_extended_key)?;
     let fingerprint = read_fingerprint(reader)?;
@@ -276,6 +318,7 @@ fn read_keys_response(reader: &mut Reader<'_>) -> Result<response::Keys, Error> 
     })
 }
 
+#[cfg(feature = "coordinator")]
 fn read_info_response(reader: &mut Reader<'_>) -> Result<response::Info, Error> {
     let vendor = reader.take_string()?;
     let model = reader.take_string()?;
@@ -301,6 +344,7 @@ fn read_info_response(reader: &mut Reader<'_>) -> Result<response::Info, Error> 
     Ok(response)
 }
 
+#[cfg(feature = "coordinator")]
 fn read_registration_response(reader: &mut Reader<'_>) -> Result<response::Registration, Error> {
     let descriptor_alias = read_descriptor_alias(reader)?;
     let registered = reader.take_bool()?;
@@ -314,18 +358,21 @@ fn read_registration_response(reader: &mut Reader<'_>) -> Result<response::Regis
     })
 }
 
+#[cfg(feature = "coordinator")]
 fn read_unregistered_response(reader: &mut Reader<'_>) -> Result<response::Unregistered, Error> {
     Ok(response::Unregistered {
         descriptor_alias: read_descriptor_alias(reader)?,
     })
 }
 
+#[cfg(feature = "coordinator")]
 fn read_address_response(reader: &mut Reader<'_>) -> Result<response::AddressUri, Error> {
     Ok(response::AddressUri {
         uri: reader.take_string()?,
     })
 }
 
+#[cfg(feature = "coordinator")]
 fn read_signed_response(reader: &mut Reader<'_>) -> Result<response::Signed, Error> {
     match read_sign_response_kind(reader)? {
         SignResponseKind::Psbt => Ok(response::Signed::Psbt(reader.take_bytes()?)),
@@ -337,6 +384,7 @@ fn read_signed_response(reader: &mut Reader<'_>) -> Result<response::Signed, Err
     }
 }
 
+#[cfg(feature = "coordinator")]
 fn read_error_response(
     reader: &mut Reader<'_>,
     message_type: MessageType,
@@ -350,6 +398,7 @@ fn read_error_response(
     })
 }
 
+#[cfg(feature = "signer")]
 fn read_descriptor(reader: &mut Reader<'_>) -> Result<request::Descriptor, Error> {
     let alias = read_descriptor_alias(reader)?;
     let descriptor = reader.take_option(read_descriptor_body)?;
@@ -361,6 +410,7 @@ fn read_descriptor(reader: &mut Reader<'_>) -> Result<request::Descriptor, Error
     })
 }
 
+#[cfg(feature = "signer")]
 fn read_descriptor_body(reader: &mut Reader<'_>) -> Result<request::DescriptorBody, Error> {
     match request::DescriptorForm::try_from(reader.take_u8()?)? {
         request::DescriptorForm::Bip380 => {
@@ -377,6 +427,7 @@ fn read_descriptor_body(reader: &mut Reader<'_>) -> Result<request::DescriptorBo
     }
 }
 
+#[cfg(feature = "signer")]
 fn read_sp_keys(reader: &mut Reader<'_>) -> Result<request::SpKeys, Error> {
     let fingerprint = read_fingerprint(reader)?;
     let spend_path = read_path(reader)?;
@@ -388,6 +439,7 @@ fn read_sp_keys(reader: &mut Reader<'_>) -> Result<request::SpKeys, Error> {
     })
 }
 
+#[cfg(feature = "signer")]
 fn read_scan(reader: &mut Reader<'_>) -> Result<request::Scan, Error> {
     let path = reader.take_option(read_path)?;
     let key = reader.take_option(read_secret_key)?;
@@ -399,6 +451,7 @@ fn read_scan(reader: &mut Reader<'_>) -> Result<request::Scan, Error> {
     }
 }
 
+#[cfg(feature = "coordinator")]
 fn read_signature(reader: &mut Reader<'_>) -> Result<response::SignatureEntry, Error> {
     let input_index = reader.take_u32_be()?;
     let kind = reader.take_u8()?;
@@ -416,6 +469,7 @@ fn read_signature(reader: &mut Reader<'_>) -> Result<response::SignatureEntry, E
     Ok(entry)
 }
 
+#[cfg(feature = "coordinator")]
 fn read_signature_fields(
     reader: &mut Reader<'_>,
     input_index: u32,
@@ -500,11 +554,13 @@ fn read_signature_fields(
     }
 }
 
+#[cfg(feature = "coordinator")]
 fn read_sp_scope(reader: &mut Reader<'_>, input_index: u32) -> Result<response::SpScope, Error> {
     response::SpScope::from_wire(reader.take_bool()?, input_index)
         .ok_or(Error::GlobalInputIndex(input_index))
 }
 
+#[cfg(feature = "signer")]
 fn read_path(reader: &mut Reader<'_>) -> Result<DerivationPath, Error> {
     let count = reader.take_u8()? as usize;
     // the count is one byte, so this allocates at most 255 children
@@ -519,6 +575,7 @@ fn read_descriptor_alias(reader: &mut Reader<'_>) -> Result<String, Error> {
     Ok(reader.take_string_with_limit(MAX_DESCRIPTOR_ALIAS)?)
 }
 
+#[cfg(feature = "coordinator")]
 fn read_extended_key(reader: &mut Reader<'_>) -> Result<ExtendedKey, Error> {
     Ok(ExtendedKey(reader.take_array()?))
 }
@@ -527,18 +584,22 @@ fn read_fingerprint(reader: &mut Reader<'_>) -> Result<Fingerprint, Error> {
     Ok(Fingerprint(reader.take_array()?))
 }
 
+#[cfg(feature = "coordinator")]
 fn read_capabilites(reader: &mut Reader<'_>) -> Result<response::Capabilities, Error> {
     Ok(response::Capabilities(reader.take_u32_be()?))
 }
 
+#[cfg(feature = "coordinator")]
 fn read_pubkey(reader: &mut Reader<'_>) -> Result<PublicKey, Error> {
     Ok(PublicKey(reader.take_array()?))
 }
 
+#[cfg(feature = "signer")]
 fn read_secret_key(reader: &mut Reader<'_>) -> Result<SecretKey, Error> {
     Ok(SecretKey(reader.take_array()?))
 }
 
+#[cfg(feature = "coordinator")]
 fn read_version(reader: &mut Reader<'_>) -> Result<response::FirmwareVersion, Error> {
     let major = reader.take_u16_be()?;
     let minor = reader.take_u16_be()?;
@@ -559,6 +620,7 @@ fn read_sign_response_kind(reader: &mut Reader<'_>) -> Result<SignResponseKind, 
 }
 
 // WANT_KIND is a preference, so an unknown value reads as absent rather than failing
+#[cfg(feature = "signer")]
 fn read_want_kind(reader: &mut Reader<'_>) -> Result<Option<SignResponseKind>, Error> {
     Ok(read_sign_response_kind(reader).ok())
 }

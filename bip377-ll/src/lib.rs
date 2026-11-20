@@ -15,6 +15,9 @@
 
 extern crate alloc;
 
+#[cfg(not(any(feature = "coordinator", feature = "signer")))]
+compile_error!("bip377-ll needs the `coordinator` feature, the `signer` feature or both");
+
 const MAGIC: &[u8; 6] = b"BIP377";
 const VERSION: u8 = 1;
 const DIRECTION_RESPONSE: u8 = 0x80;
@@ -295,10 +298,12 @@ wire_enum! {
     }
 }
 
+#[cfg(feature = "coordinator")]
 pub fn encode_request(request: &Request) -> Result<Vec<u8>, encode::Error> {
     encode::encode_request(request)
 }
 
+#[cfg(feature = "signer")]
 pub fn encode_response(response: &Response) -> Result<Vec<u8>, encode::Error> {
     encode::encode_response(response)
 }

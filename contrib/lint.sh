@@ -6,6 +6,10 @@ cargo fmt -- --check
 cargo fmt --manifest-path examples/bitcoin_0_32_0/Cargo.toml -- --check
 cargo clippy -p bip377-ll --all-targets -- -D warnings
 cargo clippy -p bip377-ll --all-targets --features ffi -- -D warnings
+# each role alone, as a coordinator or a signer firmware builds it
+cargo clippy -p bip377-ll --all-targets --no-default-features --features coordinator -- -D warnings
+cargo clippy -p bip377-ll --all-targets --no-default-features --features signer -- -D warnings
+cargo clippy -p bip377-ll --all-targets --no-default-features --features ffi -- -D warnings
 cargo clippy --all-targets -- -D warnings
 # without a backend the crate is only the codec re-export
 cargo clippy --all-targets --no-default-features -- -D warnings

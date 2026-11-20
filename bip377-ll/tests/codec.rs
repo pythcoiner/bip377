@@ -447,6 +447,7 @@ fn every_error_message_is_terminated_and_uniquely_coded() {
         decode::Error::NoScan,
         decode::Error::UnpairedSession,
         decode::Error::UnreadableRequestType,
+        decode::Error::DirectionDisabled,
     ];
     let encode_errors = [
         encode::Error::PathTooLong(0),

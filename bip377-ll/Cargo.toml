@@ -19,5 +19,27 @@ path = "src/lib.rs"
 serde_json = "1.0"
 
 [features]
-default = []
-ffi = []
+default = ["coordinator", "signer"]
+# encode requests, decode responses
+coordinator = []
+# decode requests, encode responses
+signer = []
+# the C binding serves the signer direction
+ffi = ["signer"]
+
+# the tests round-trip messages, so they need both roles
+[[test]]
+name = "codec"
+required-features = ["coordinator", "signer"]
+
+[[test]]
+name = "ffi"
+required-features = ["coordinator", "ffi"]
+
+[[test]]
+name = "nonce_cache"
+required-features = ["coordinator", "signer"]
+
+[[test]]
+name = "vectors"
+required-features = ["coordinator", "signer"]

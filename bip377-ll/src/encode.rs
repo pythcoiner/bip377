@@ -2,13 +2,21 @@ use alloc::{string::String, vec::Vec};
 
 use crate::{
     DIRECTION_REQUEST, DIRECTION_RESPONSE, ErrorInfo, Invalid, MAGIC, MAX_DESCRIPTOR_ALIAS,
-    MessageType, REQUEST_ID_LEN, Request, RequestId, Response, STATUS_ERROR, STATUS_OK,
-    SignResponseKind, VERSION, request, response, sp,
-    types::{DerivationPath, ExtendedKey, PublicKey, TAP_LEAF_HASH_LEN},
+    MessageType, REQUEST_ID_LEN, RequestId, STATUS_ERROR, STATUS_OK, VERSION,
+};
+#[cfg(feature = "coordinator")]
+use crate::{Request, request, types::DerivationPath};
+#[cfg(feature = "signer")]
+use crate::{
+    Response, SignResponseKind, response, sp,
+    types::{ExtendedKey, PublicKey, TAP_LEAF_HASH_LEN},
 };
 
+#[cfg(feature = "signer")]
 const ERROR_CODE_FUTURE_MIN: u8 = 0x10;
+#[cfg(feature = "signer")]
 const ERROR_CODE_FUTURE_MAX: u8 = 0xfe;
+#[cfg(feature = "signer")]
 const NETWORKS_MASK: u8 = response::Networks::MAINNET
     | response::Networks::TESTNET
     | response::Networks::SIGNET
@@ -70,12 +78,14 @@ impl From<Invalid> for Error {
     }
 }
 
+#[cfg(feature = "coordinator")]
 pub fn encode_request(request: &Request) -> Result<Vec<u8>, Error> {
     let mut out = envelope(request.body.message_type(), false, false, request.id);
     encode_request_body(&mut out, &request.body)?;
     Ok(out)
 }
 
+#[cfg(feature = "signer")]
 pub fn encode_response(response: &Response) -> Result<Vec<u8>, Error> {
     response.validate()?;
     // only the signer is bound to answer 0x03, so the decoder does not check it
@@ -109,6 +119,7 @@ fn envelope(message_type: MessageType, response: bool, error: bool, id: RequestI
     out
 }
 
+#[cfg(feature = "coordinator")]
 fn encode_request_body(out: &mut Vec<u8>, body: &request::Body) -> Result<(), Error> {
     match body {
         request::Body::GetInfo => Ok(()),
@@ -125,6 +136,7 @@ fn encode_request_body(out: &mut Vec<u8>, body: &request::Body) -> Result<(), Er
     }
 }
 
+#[cfg(feature = "signer")]
 fn encode_response_body(out: &mut Vec<u8>, body: &response::Body) -> Result<(), Error> {
     match body {
         response::Body::Info(response) => encode_info_response(out, response),
@@ -140,10 +152,12 @@ fn encode_response_body(out: &mut Vec<u8>, body: &response::Body) -> Result<(), 
     }
 }
 
+#[cfg(feature = "coordinator")]
 fn encode_get_keys_request(out: &mut Vec<u8>, request: &request::GetKeys) -> Result<(), Error> {
     write_vec(out, &request.keys, write_path)
 }
 
+#[cfg(feature = "coordinator")]
 fn encode_register_descriptor_request(
     out: &mut Vec<u8>,
     request: &request::RegisterDescriptor,
@@ -152,6 +166,7 @@ fn encode_register_descriptor_request(
     write_option(out, request.descriptor.as_ref(), write_descriptor_body)
 }
 
+#[cfg(feature = "coordinator")]
 fn encode_verify_address_request(
     out: &mut Vec<u8>,
     request: &request::VerifyAddress,
@@ -165,6 +180,7 @@ fn encode_verify_address_request(
     })
 }
 
+#[cfg(feature = "coordinator")]
 fn encode_sign_request(out: &mut Vec<u8>, request: &request::Sign) -> Result<(), Error> {
     write_vec(out, &request.descriptors, write_descriptor)?;
     write_bytes(out, &request.psbt)?;
@@ -175,6 +191,7 @@ fn encode_sign_request(out: &mut Vec<u8>, request: &request::Sign) -> Result<(),
     write_bool(out, &request.accept_trimmed)
 }
 
+#[cfg(feature = "coordinator")]
 fn encode_prepare_nonces(out: &mut Vec<u8>, request: &request::PrepareNonces) -> Result<(), Error> {
     request.validate()?;
     write_option(out, request.session_id.as_ref(), write_array)?;
@@ -189,6 +206,7 @@ fn encode_prepare_nonces(out: &mut Vec<u8>, request: &request::PrepareNonces) ->
     })
 }
 
+#[cfg(feature = "signer")]
 fn encode_nonces_prepared(
     out: &mut Vec<u8>,
     response: &response::NoncesPrepared,
@@ -203,6 +221,7 @@ fn encode_nonces_prepared(
     write_vec(out, &response.nonces, write_array)
 }
 
+#[cfg(feature = "signer")]
 fn encode_keys_response(out: &mut Vec<u8>, response: &response::Keys) -> Result<(), Error> {
     write_vec(out, &response.keys, write_extended_key)?;
     out.extend_from_slice(&response.fingerprint.0);
@@ -212,6 +231,7 @@ fn encode_keys_response(out: &mut Vec<u8>, response: &response::Keys) -> Result<
     write_capabilities(out, &response.capabilities)
 }
 
+#[cfg(feature = "signer")]
 fn encode_info_response(out: &mut Vec<u8>, response: &response::Info) -> Result<(), Error> {
     response.validate()?;
     write_string(out, &response.vendor)?;
@@ -228,6 +248,7 @@ fn encode_info_response(out: &mut Vec<u8>, response: &response::Info) -> Result<
     })
 }
 
+#[cfg(feature = "signer")]
 fn encode_registration_response(
     out: &mut Vec<u8>,
     response: &response::Registration,
@@ -240,6 +261,7 @@ fn encode_registration_response(
     })
 }
 
+#[cfg(feature = "signer")]
 fn encode_address_uri_response(
     out: &mut Vec<u8>,
     response: &response::AddressUri,
@@ -247,6 +269,7 @@ fn encode_address_uri_response(
     write_string(out, &response.uri)
 }
 
+#[cfg(feature = "signer")]
 fn encode_signed_response(out: &mut Vec<u8>, response: &response::Signed) -> Result<(), Error> {
     match response {
         response::Signed::Psbt(psbt) => encode_signed_psbt_response(out, psbt),
@@ -256,11 +279,13 @@ fn encode_signed_response(out: &mut Vec<u8>, response: &response::Signed) -> Res
     }
 }
 
+#[cfg(feature = "signer")]
 fn encode_signed_psbt_response(out: &mut Vec<u8>, psbt: &[u8]) -> Result<(), Error> {
     out.push(SignResponseKind::Psbt.value());
     write_bytes(out, psbt)
 }
 
+#[cfg(feature = "signer")]
 fn encode_signed_signatures_response(
     out: &mut Vec<u8>,
     signatures: &[response::SignatureEntry],
@@ -270,11 +295,13 @@ fn encode_signed_signatures_response(
     write_vec(out, signatures, write_signature)
 }
 
+#[cfg(feature = "signer")]
 fn encode_error_response(out: &mut Vec<u8>, response: &response::ErrorBody) -> Result<(), Error> {
     write_error_code(out, response.error)?;
     write_string(out, &response.message)
 }
 
+#[cfg(feature = "coordinator")]
 fn write_descriptor(out: &mut Vec<u8>, descriptor: &request::Descriptor) -> Result<(), Error> {
     write_descriptor_alias(out, &descriptor.alias)?;
     write_option(out, descriptor.descriptor.as_ref(), write_descriptor_body)?;
@@ -287,6 +314,7 @@ fn write_descriptor_alias(out: &mut Vec<u8>, alias: &String) -> Result<(), Error
     write_string_with_limit(out, alias, MAX_DESCRIPTOR_ALIAS)
 }
 
+#[cfg(feature = "coordinator")]
 fn write_descriptor_body(out: &mut Vec<u8>, body: &request::DescriptorBody) -> Result<(), Error> {
     out.push(body.value());
     match body {
@@ -299,6 +327,7 @@ fn write_descriptor_body(out: &mut Vec<u8>, body: &request::DescriptorBody) -> R
     }
 }
 
+#[cfg(feature = "coordinator")]
 fn write_sp_keys(out: &mut Vec<u8>, keys: &request::SpKeys) -> Result<(), Error> {
     out.extend_from_slice(&keys.fingerprint.0);
     write_path(out, &keys.spend_path)?;
@@ -313,6 +342,7 @@ fn write_sp_keys(out: &mut Vec<u8>, keys: &request::SpKeys) -> Result<(), Error>
     })
 }
 
+#[cfg(feature = "signer")]
 fn write_signature(out: &mut Vec<u8>, entry: &response::SignatureEntry) -> Result<(), Error> {
     entry.validate()?;
     let mut fields = Vec::new();
@@ -336,6 +366,7 @@ fn write_signature(out: &mut Vec<u8>, entry: &response::SignatureEntry) -> Resul
     write_bytes(out, &fields)
 }
 
+#[cfg(feature = "signer")]
 fn write_ecdsa_signature(out: &mut Vec<u8>, entry: &response::SignatureEntry) -> Result<(), Error> {
     let response::SignatureEntry::Ecdsa {
         public_key,
@@ -349,6 +380,7 @@ fn write_ecdsa_signature(out: &mut Vec<u8>, entry: &response::SignatureEntry) ->
     write_bytes(out, signature)
 }
 
+#[cfg(feature = "signer")]
 fn write_tap_key_signature(
     out: &mut Vec<u8>,
     entry: &response::SignatureEntry,
@@ -359,6 +391,7 @@ fn write_tap_key_signature(
     write_bytes(out, signature)
 }
 
+#[cfg(feature = "signer")]
 fn write_tap_script_signature(
     out: &mut Vec<u8>,
     entry: &response::SignatureEntry,
@@ -377,6 +410,7 @@ fn write_tap_script_signature(
     write_bytes(out, signature)
 }
 
+#[cfg(feature = "signer")]
 fn write_musig_pub_nonce(out: &mut Vec<u8>, entry: &response::SignatureEntry) -> Result<(), Error> {
     let response::SignatureEntry::MusigPubNonce {
         participant,
@@ -393,6 +427,7 @@ fn write_musig_pub_nonce(out: &mut Vec<u8>, entry: &response::SignatureEntry) ->
     Ok(())
 }
 
+#[cfg(feature = "signer")]
 fn write_musig_partial_sig(
     out: &mut Vec<u8>,
     entry: &response::SignatureEntry,
@@ -412,6 +447,7 @@ fn write_musig_partial_sig(
     Ok(())
 }
 
+#[cfg(feature = "signer")]
 fn write_musig_slot(
     out: &mut Vec<u8>,
     participant: &PublicKey,
@@ -426,6 +462,7 @@ fn write_musig_slot(
     })
 }
 
+#[cfg(feature = "signer")]
 fn write_sp_ecdh_share(out: &mut Vec<u8>, entry: &response::SignatureEntry) -> Result<(), Error> {
     let response::SignatureEntry::SpEcdhShare {
         scope,
@@ -441,6 +478,7 @@ fn write_sp_ecdh_share(out: &mut Vec<u8>, entry: &response::SignatureEntry) -> R
     Ok(())
 }
 
+#[cfg(feature = "signer")]
 fn write_sp_dleq_proof(out: &mut Vec<u8>, entry: &response::SignatureEntry) -> Result<(), Error> {
     let response::SignatureEntry::SpDleqProof {
         scope,
@@ -456,12 +494,14 @@ fn write_sp_dleq_proof(out: &mut Vec<u8>, entry: &response::SignatureEntry) -> R
     Ok(())
 }
 
+#[cfg(feature = "signer")]
 fn write_sp_scope(out: &mut Vec<u8>, scope: &response::SpScope) -> Result<(), Error> {
     write_bool(out, &(*scope == response::SpScope::Global))
 }
 
 // The decoder reads a defined kind as its own variant and the reserved 0x00 is never
 // sent, so neither may hide behind `Unknown`.
+#[cfg(feature = "signer")]
 fn write_unknown_signature(
     out: &mut Vec<u8>,
     entry: &response::SignatureEntry,
@@ -478,6 +518,7 @@ fn write_unknown_signature(
     Ok(())
 }
 
+#[cfg(feature = "coordinator")]
 fn write_path(out: &mut Vec<u8>, path: &DerivationPath) -> Result<(), Error> {
     let count = u8::try_from(path.0.len()).map_err(|_| Error::PathTooLong(path.0.len()))?;
     out.push(count);
@@ -487,11 +528,13 @@ fn write_path(out: &mut Vec<u8>, path: &DerivationPath) -> Result<(), Error> {
     Ok(())
 }
 
+#[cfg(feature = "signer")]
 fn write_extended_key(out: &mut Vec<u8>, key: &ExtendedKey) -> Result<(), Error> {
     out.extend_from_slice(&key.0);
     Ok(())
 }
 
+#[cfg(feature = "signer")]
 fn write_version(out: &mut Vec<u8>, version: &response::FirmwareVersion) -> Result<(), Error> {
     out.extend_from_slice(&version.major.to_be_bytes());
     out.extend_from_slice(&version.minor.to_be_bytes());
@@ -501,6 +544,7 @@ fn write_version(out: &mut Vec<u8>, version: &response::FirmwareVersion) -> Resu
 
 // The decoder reads a defined channel as its own variant, so none may hide behind
 // `Unknown`.
+#[cfg(feature = "signer")]
 fn write_release_flag(out: &mut Vec<u8>, flag: response::ReleaseFlag) -> Result<(), Error> {
     if let response::ReleaseFlag::Unknown { channel, number } = flag {
         if response::ReleaseFlag::try_from([channel, number]) != Ok(flag) {
@@ -511,6 +555,7 @@ fn write_release_flag(out: &mut Vec<u8>, flag: response::ReleaseFlag) -> Result<
     Ok(())
 }
 
+#[cfg(feature = "signer")]
 fn write_capabilities(
     out: &mut Vec<u8>,
     capabilities: &response::Capabilities,
@@ -524,6 +569,7 @@ fn write_capabilities(
 
 // The decoder reads a defined state as its own variant, so none may hide behind
 // `Unknown`.
+#[cfg(feature = "signer")]
 fn write_state(out: &mut Vec<u8>, state: response::State) -> Result<(), Error> {
     if let response::State::Unknown(value) = state {
         if response::State::from(value) != response::State::Unknown(value) {
@@ -534,6 +580,7 @@ fn write_state(out: &mut Vec<u8>, state: response::State) -> Result<(), Error> {
     Ok(())
 }
 
+#[cfg(feature = "signer")]
 fn write_networks(out: &mut Vec<u8>, networks: &response::Networks) -> Result<(), Error> {
     if networks.0 & !NETWORKS_MASK != 0 {
         return Err(Error::ReservedNetworkBits(networks.0));
@@ -542,6 +589,7 @@ fn write_networks(out: &mut Vec<u8>, networks: &response::Networks) -> Result<()
     Ok(())
 }
 
+#[cfg(feature = "signer")]
 fn write_error_code(out: &mut Vec<u8>, error: response::Error) -> Result<(), Error> {
     if let response::Error::Unknown(value) = error {
         if !(ERROR_CODE_FUTURE_MIN..=ERROR_CODE_FUTURE_MAX).contains(&value) {

@@ -18,8 +18,18 @@ The conversions between those types and the `bitcoin` ones live in the
 
 ## Features
 
-- `ffi` adds the C binding: `#[repr(C)]` mirrors of the message tree and four
-  exported functions.
+| Feature flag  | Default | Description                                              |
+|---------------|---------|----------------------------------------------------------|
+| `coordinator` | yes     | Encode requests and decode responses                     |
+| `signer`      | yes     | Decode requests and encode responses                     |
+| `ffi`         | -       | The C binding, signer direction; enables `signer`        |
+
+A consumer enables the role it plays, or both: a signer firmware builds with
+`default-features = false, features = ["signer"]` and leaves the coordinator half
+out. At least one role is required. `decode` reads the header of any message, and
+fails with `DirectionDisabled` (`214`) on a direction its features leave out.
+
+`ffi` adds `#[repr(C)]` mirrors of the message tree and four exported functions.
 
 ## Rust
 
@@ -131,7 +141,7 @@ supply, so link this crate as an rlib from your own staticlib crate:
 crate-type = ["staticlib"]
 
 [dependencies]
-bip377-ll = { version = "0.0.1", features = ["ffi"] }
+bip377-ll = { version = "0.0.1", default-features = false, features = ["ffi"] }
 ```
 
 ```rust
