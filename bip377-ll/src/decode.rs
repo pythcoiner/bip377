@@ -85,7 +85,7 @@ impl From<reader::Error> for Error {
 pub fn decode(bytes: &[u8]) -> Result<Message, Error> {
     let mut reader = Reader::new(bytes);
     read_magic(&mut reader)?;
-    // A newer version only appends fields, so anything above VERSION parses as VERSION.
+    // The minimum version is 1.
     if reader.take_u8()? == 0 {
         return Err(Error::ReservedVersion);
     }
