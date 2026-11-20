@@ -1,4 +1,4 @@
-//! Binary codec for draft BIP-377, plus the nonce cache described in `NONCE_CACHE.md`.
+//! Binary codec for BIP-377, plus the nonce cache described in `NONCE_CACHE.md`.
 //!
 //! The crate is `no_std` plus `alloc` and pulls no dependency of its own, so a
 //! bare-metal signer can vendor it as-is. Enable `ffi` for the C binding; the

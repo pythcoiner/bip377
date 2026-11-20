@@ -1,6 +1,6 @@
 # Pending changes to BIP-377: nonce cache
 
-This codec implements the nonce cache ahead of draft
+This codec implements the nonce cache ahead of
 [BIP-377](https://github.com/bitcoin/bips/pull/2353). These changes will move into
 BIP-377 once the nonce cache BIP draft ("Signer nonce cache sessions for one-round
 signing") has its own draft PR, and this file will be removed then.

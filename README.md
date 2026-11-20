@@ -1,6 +1,6 @@
 # bip377
 
-Rust implementation of draft [BIP-377](https://github.com/bitcoin/bips/pull/2353): the byte encoding of the messages a
+Rust implementation of [BIP-377](https://github.com/bitcoin/bips/pull/2353): the byte encoding of the messages a
 coordinator and a signer exchange (Get Info, Get Keys, Register Descriptor,
 Address Verification, Signing, Nonce Preparation, Unregister Descriptor). The
 format is specified in BIP-377, except the nonce cache (Nonce Preparation and

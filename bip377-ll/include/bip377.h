@@ -1,7 +1,7 @@
 /* C binding for the BIP-377 signing codec, signer direction.
  *
  * Kept in sync by hand with src/ffi/types.rs. The wire format is
- * specified in draft BIP-377 and NONCE_CACHE.md.
+ * specified in BIP-377 and NONCE_CACHE.md.
  *
  * Ownership: this library never frees memory you own, and you never free memory it
  * owns except through bip377_request_free and bip377_buf_free. On encode your struct

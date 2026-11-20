@@ -1,6 +1,6 @@
 # bip377-ll
 
-The binary codec for draft BIP-377, the signing message encoding between a
+The binary codec for BIP-377, the signing message encoding between a
 coordinator and a signer. [BIP-377](https://github.com/bitcoin/bips/pull/2353) is the authoritative format, extended by the
 nonce cache in [NONCE_CACHE.md](../NONCE_CACHE.md) until it lands in the BIP; this
 crate implements it and nothing else. Framing (BBQR) and QR rendering are out of scope.
