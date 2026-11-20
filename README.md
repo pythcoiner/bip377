@@ -48,11 +48,15 @@ caller's own `bitcoin` dependency.
 
 | Feature flag     | Default | Description                                          |
 |------------------|---------|------------------------------------------------------|
+| `coordinator`    | yes     | Encode requests and decode responses                 |
+| `signer`         | yes     | Decode requests and encode responses                 |
 | `bitcoin_0_32`   | -       | Convert to and from `bitcoin` 0.32 (0.32.0 or later) |
 | `bitcoin_latest` | yes     | Alias for `bitcoin_0_32`                             |
 
-Without a backend feature (`default-features = false`), `bip377` is only the
-`bip377::ll` re-export. A new `bitcoin` major release gets its own feature.
+`coordinator` and `signer` are the roles of [`bip377-ll`](bip377-ll/README.md):
+enable the one the consumer plays, or both. At least one is required. Without a
+backend feature, `bip377` is only the `bip377::ll` re-export. A new `bitcoin` major
+release gets its own feature.
 
 [`examples/`](examples) holds one downstream crate pinned at `bitcoin` 0.32.0, the
 oldest supported release, and one at 0.32.5, the release Liana builds with. Both

@@ -20,11 +20,15 @@ members = ["bip377-ll"]
 exclude = ["fuzz", "examples"]
 
 [dependencies]
-bip377-ll = { version = "0.0.1", path = "bip377-ll" }
+bip377-ll = { version = "0.0.1", path = "bip377-ll", default-features = false }
 # `std` is left to the caller: the backend itself only needs `alloc`.
 bitcoin_0_32 = { package = "bitcoin", version = "0.32", default-features = false, optional = true }
 
 [features]
-default = ["bitcoin_latest"]
+default = ["bitcoin_latest", "coordinator", "signer"]
+# encode requests, decode responses
+coordinator = ["bip377-ll/coordinator"]
+# decode requests, encode responses
+signer = ["bip377-ll/signer"]
 bitcoin_0_32 = ["dep:bitcoin_0_32"]
 bitcoin_latest = ["bitcoin_0_32"]

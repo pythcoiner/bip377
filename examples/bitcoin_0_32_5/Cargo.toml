@@ -7,7 +7,11 @@ publish = false
 # Pinned to the release Liana builds with.
 [dependencies]
 bitcoin = "=0.32.5"
-bip377 = { path = "../..", default-features = false, features = ["bitcoin_0_32"] }
+bip377 = { path = "../..", default-features = false, features = [
+    "bitcoin_0_32",
+    "coordinator",
+    "signer",
+] }
 
 [[bin]]
 name = "roundtrip"

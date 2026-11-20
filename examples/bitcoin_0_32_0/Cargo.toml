@@ -7,7 +7,11 @@ publish = false
 # Pinned to the oldest supported release, the floor bip377 declares.
 [dependencies]
 bitcoin = "=0.32.0"
-bip377 = { path = "../..", default-features = false, features = ["bitcoin_0_32"] }
+bip377 = { path = "../..", default-features = false, features = [
+    "bitcoin_0_32",
+    "coordinator",
+    "signer",
+] }
 
 [[bin]]
 name = "roundtrip"

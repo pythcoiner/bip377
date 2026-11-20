@@ -12,8 +12,9 @@ cargo clippy -p bip377-ll --all-targets --no-default-features --features signer 
 cargo clippy -p bip377-ll --all-targets --no-default-features --features ffi -- -D warnings
 cargo clippy --all-targets -- -D warnings
 # without a backend the crate is only the codec re-export
-cargo clippy --all-targets --no-default-features -- -D warnings
-cargo clippy --all-targets --no-default-features --features bitcoin_0_32 -- -D warnings
+cargo clippy --all-targets --no-default-features --features coordinator -- -D warnings
+cargo clippy --all-targets --no-default-features --features signer -- -D warnings
+cargo clippy --all-targets --no-default-features --features bitcoin_0_32,signer -- -D warnings
 # downstream crates built against the oldest and Liana's bitcoin 0.32 release
 cargo clippy --manifest-path examples/bitcoin_0_32_0/Cargo.toml -- -D warnings
 cargo clippy --manifest-path examples/bitcoin_0_32_5/Cargo.toml -- -D warnings
