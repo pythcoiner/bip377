@@ -30,5 +30,6 @@ default = ["bitcoin_latest", "coordinator", "signer"]
 coordinator = ["bip377-ll/coordinator"]
 # decode requests, encode responses
 signer = ["bip377-ll/signer"]
+serde = ["bip377-ll/serde"]
 bitcoin_0_32 = ["dep:bitcoin_0_32"]
 bitcoin_latest = ["bitcoin_0_32"]

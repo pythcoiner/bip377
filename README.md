@@ -52,6 +52,7 @@ caller's own `bitcoin` dependency.
 | `signer`         | yes     | Decode requests and encode responses                 |
 | `bitcoin_0_32`   | -       | Convert to and from `bitcoin` 0.32 (0.32.0 or later) |
 | `bitcoin_latest` | yes     | Alias for `bitcoin_0_32`                             |
+| `serde`          | -       | Forwards `bip377-ll`'s `serde` feature               |
 
 `coordinator` and `signer` are the roles of [`bip377-ll`](bip377-ll/README.md):
 enable the one the consumer plays, or both. At least one is required. Without a
