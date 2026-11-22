@@ -1,6 +1,6 @@
 //! Binary codec for BIP-377, plus the nonce cache described in `NONCE_CACHE.md`.
 //!
-//! The crate is `no_std` plus `alloc` and pulls no dependency of its own, so a
+//! The crate is `no_std` plus `alloc` and pulls no dependency without `serde`, so a
 //! bare-metal signer can vendor it as-is. Enable `ffi` for the C binding; the
 //! conversions to and from the `bitcoin` types live in the `bip377` crate.
 

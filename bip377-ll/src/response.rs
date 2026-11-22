@@ -52,6 +52,7 @@ pub struct Keys {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct FirmwareVersion {
     pub major: u16,
     pub minor: u16,
@@ -62,6 +63,8 @@ pub struct FirmwareVersion {
 /// A pre-release channel and its number, the two `FLAG` bytes. A stable release has
 /// no number.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum ReleaseFlag {
     Stable,
     Alpha(u8),
@@ -104,6 +107,7 @@ impl TryFrom<[u8; 2]> for ReleaseFlag {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Capabilities(pub u32);
 
 impl Capabilities {
@@ -427,5 +431,34 @@ wire_enum! {
         NetworkMismatch = 0x0f,
         Vendor = 0xff,
         _ => Unknown,
+    }
+}
+
+#[cfg(all(test, feature = "serde"))]
+mod tests {
+    use crate::response::{Capabilities, FirmwareVersion, ReleaseFlag};
+
+    #[test]
+    fn version_and_capabilities_round_trip_through_serde() {
+        let version = FirmwareVersion {
+            major: 1,
+            minor: 2,
+            patch: 3,
+            flag: ReleaseFlag::Unknown {
+                channel: 9,
+                number: 4,
+            },
+        };
+        let json = serde_json::to_string(&version).unwrap();
+        assert_eq!(
+            serde_json::from_str::<FirmwareVersion>(&json).unwrap(),
+            version
+        );
+        let capabilities = Capabilities(Capabilities::MUSIG2 | 1 << 31);
+        let json = serde_json::to_string(&capabilities).unwrap();
+        assert_eq!(
+            serde_json::from_str::<Capabilities>(&json).unwrap(),
+            capabilities
+        );
     }
 }

@@ -23,6 +23,7 @@ The conversions between those types and the `bitcoin` ones live in the
 | `coordinator` | yes     | Encode requests and decode responses                     |
 | `signer`      | yes     | Decode requests and encode responses                     |
 | `ffi`         | -       | The C binding, signer direction; enables `signer`        |
+| `serde`       | -       | `Serialize`/`Deserialize` on version and capabilities    |
 
 A consumer enables the role it plays, or both: a signer firmware builds with
 `default-features = false, features = ["signer"]` and leaves the coordinator half
