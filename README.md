@@ -15,29 +15,25 @@ The codec is imported from bwk.
 - [`bip377-ll`](bip377-ll/README.md): the codec. `no_std` plus `alloc` with no
   dependency at all, so a bare-metal signer can depend on it directly. Its `ffi`
   feature adds the C binding ([`bip377-ll/include/bip377.h`](bip377-ll/include/bip377.h)).
-- `bip377`: re-exports `bip377-ll` as `bip377::ll` and adds `bip377::backend`: the
-  `Backend` trait, which converts the codec's wire types and carries the
-  coordinator's messages over a consumer's own types, and `RustBitcoin`, its
-  implementation over a `bitcoin` release.
+- `bip377`: re-exports `bip377-ll` as `bip377::ll` and adds `bip377::backend`, the
+  `Backend` trait converting the codec's wire types to a consumer's own types with
+  `RustBitcoin` its implementation over a `bitcoin` release, and
+  `bip377::request` and `bip377::response`, the coordinator's messages over any
+  backend's types.
 
 ## Coordinator
 
-A coordinator encodes its requests and decodes the answers through a `Backend`,
-whose `Request` and `Response` types carry the messages over its own types. With a
-backend feature, `RustBitcoin` provides them over `bitcoin` types, in
-`bip377::backend::rust_bitcoin::{request, response}`:
+A coordinator encodes its requests and decodes the answers through a `Backend`.
+`bip377::request::Request<B>` and `bip377::response::Response<B>` carry the
+messages over the types of backend `B`; with a backend feature, `RustBitcoin`
+provides them over `bitcoin` types:
 
 ```rust
 use bip377::{
-    backend::{
-        Backend,
-        rust_bitcoin::{
-            RustBitcoin,
-            request::{Body, Request, Sign},
-            response::{self, Signed},
-        },
-    },
+    backend::{Backend, rust_bitcoin::RustBitcoin},
     ll::RequestId,
+    request::{Body, Request, Sign},
+    response::{self, Signed},
 };
 use bwk_address::backend::rust_bitcoin::Address;
 
@@ -89,33 +85,30 @@ not a valid `bitcoin` type with its own variant (`Error::Psbt`,
 responses) stays on `bip377::ll`.
 
 A consumer can implement `Backend` over its own types instead, with no bitcoin
-feature: it picks the types, writes the conversions to and from the codec's, and
-defines its own `Request` and `Response` with `encode_request` and
-`decode_response` built on `bip377::ll` (`tests/mock_backend.rs` is a complete
-one):
+feature: it picks the types and writes the conversions to and from the codec's,
+and gets the typed messages from `bip377::request` and `bip377::response`
+(`tests/mock_backend.rs` is a complete one):
 
 ```rust
-use bip377::{backend::Backend, ll};
+use bip377::{backend::Backend, ll, request, response};
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum MyBackend {}
 
 impl Backend for MyBackend {
     type DerivationPath = MyPath;
     type Xpub = MyXpub;
     // ... one type per wire value
-    type Request = MyRequest;
-    type Response = MyResponse;
+    type Request = request::Request<Self>;
+    type Response = response::Response<Self>;
     type Error = MyError;
 
-    fn encode_request(request: &MyRequest) -> Result<Vec<u8>, MyError> {
-        ll::encode_request(&my_ll_request(request)).map_err(MyError::from)
+    fn encode_request(request: &request::Request<Self>) -> Result<Vec<u8>, MyError> {
+        request::encode(request)
     }
 
-    fn decode_response(bytes: &[u8]) -> Result<MyResponse, MyError> {
-        match ll::decode(bytes)? {
-            ll::Message::Response(response) => my_response(response),
-            ll::Message::Request(_) => Err(MyError::NotAResponse),
-        }
+    fn decode_response(bytes: &[u8]) -> Result<response::Response<Self>, MyError> {
+        response::decode(bytes)
     }
 
     fn to_ll_path(path: &MyPath) -> ll::types::DerivationPath { /* ... */ }
@@ -123,15 +116,17 @@ impl Backend for MyBackend {
 }
 ```
 
-`encode_request` and `decode_response` exist with the `coordinator` feature.
+`MyError` converts from `ll::encode::Error`, `ll::decode::Error` and
+`response::NotAResponse`. `encode_request` and `decode_response` exist with the
+`coordinator` feature.
 
 ## Backend
 
 The codec carries keys and paths as raw bytes (`ExtendedKey`, `Fingerprint`,
 `PublicKey`, `SecretKey`, `DerivationPath`). The orphan rule rules out `From` impls
 between them and the `bitcoin` types, so the backend converts through the
-`Backend` trait, implemented by `bip377::backend::rust_bitcoin::RustBitcoin` for the selected
-release:
+`Backend` trait, implemented by `bip377::backend::rust_bitcoin::RustBitcoin` for
+the selected release:
 
 ```rust
 use bip377::backend::{Backend, rust_bitcoin::RustBitcoin};

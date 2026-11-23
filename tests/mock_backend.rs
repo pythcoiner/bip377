@@ -11,29 +11,43 @@ use bip377::{
             PublicKey, SecretKey,
         },
     },
+    request, response,
 };
 
 const ID: RequestId = RequestId([0, 7]);
 
-#[derive(Debug)]
-struct MockError(&'static str);
+#[derive(Debug, PartialEq)]
+enum MockError {
+    Encode(ll::encode::Error),
+    Decode(ll::decode::Error),
+    NotAResponse,
+}
 
 impl fmt::Display for MockError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.0)
+        write!(f, "{self:?}")
     }
 }
 
-#[derive(Debug, PartialEq)]
-enum MockRequest {
-    GetKeys(Vec<Vec<u32>>),
+impl From<ll::encode::Error> for MockError {
+    fn from(error: ll::encode::Error) -> Self {
+        Self::Encode(error)
+    }
 }
 
-#[derive(Debug, PartialEq)]
-enum MockResponse {
-    Keys(Vec<[u8; EXTENDED_KEY_LEN]>),
+impl From<ll::decode::Error> for MockError {
+    fn from(error: ll::decode::Error) -> Self {
+        Self::Decode(error)
+    }
 }
 
+impl From<response::NotAResponse> for MockError {
+    fn from(_: response::NotAResponse) -> Self {
+        Self::NotAResponse
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum Mock {}
 
 impl Backend for Mock {
@@ -50,29 +64,16 @@ impl Backend for Mock {
     type TapLeafHash = [u8; 32];
     type MusigPartialSignature = [u8; MUSIG_PARTIAL_SIG_LEN];
     type Descriptor = String;
-    type Request = MockRequest;
-    type Response = MockResponse;
+    type Request = request::Request<Self>;
+    type Response = response::Response<Self>;
     type Error = MockError;
 
-    fn encode_request(request: &MockRequest) -> Result<Vec<u8>, MockError> {
-        let body = match request {
-            MockRequest::GetKeys(paths) => ll::request::Body::GetKeys(ll::request::GetKeys {
-                keys: paths.iter().map(Self::to_ll_path).collect(),
-            }),
-        };
-        ll::encode_request(&ll::Request { id: ID, body }).map_err(|_| MockError("encode"))
+    fn encode_request(request: &request::Request<Self>) -> Result<Vec<u8>, MockError> {
+        request::encode(request)
     }
 
-    fn decode_response(bytes: &[u8]) -> Result<MockResponse, MockError> {
-        match ll::decode(bytes).map_err(|_| MockError("decode"))? {
-            ll::Message::Response(ll::Response {
-                body: ll::response::Body::Keys(keys),
-                ..
-            }) => Ok(MockResponse::Keys(
-                keys.keys.iter().map(|key| key.0).collect(),
-            )),
-            _ => Err(MockError("not a keys response")),
-        }
+    fn decode_response(bytes: &[u8]) -> Result<response::Response<Self>, MockError> {
+        response::decode(bytes)
     }
 
     fn to_ll_path(path: &Vec<u32>) -> DerivationPath {
@@ -127,12 +128,16 @@ impl Backend for Mock {
         address.clone()
     }
 
+    fn from_ll_address_uri(uri: &str) -> Result<String, MockError> {
+        Ok(uri.to_string())
+    }
+
     fn to_ll_descriptor(descriptor: &String) -> String {
         descriptor.clone()
     }
 
-    fn from_ll_address(address: &str) -> Result<String, MockError> {
-        Ok(address.to_string())
+    fn to_ll_xpub_string(xpub: &[u8; EXTENDED_KEY_LEN]) -> String {
+        xpub.iter().map(|byte| format!("{byte:02x}")).collect()
     }
 
     fn from_ll_ecdsa_signature(signature: &[u8]) -> Result<Vec<u8>, MockError> {
@@ -159,8 +164,14 @@ impl Backend for Mock {
 }
 
 #[test]
-fn a_consumer_request_encodes_through_the_codec() {
-    let bytes = Mock::encode_request(&MockRequest::GetKeys(vec![vec![0x8000_0054, 7]])).unwrap();
+fn a_typed_request_encodes_through_the_codec() {
+    let bytes = Mock::encode_request(&request::Request {
+        id: ID,
+        body: request::Body::GetKeys(request::GetKeys {
+            keys: vec![vec![0x8000_0054, 7]],
+        }),
+    })
+    .unwrap();
     assert_eq!(
         ll::decode(&bytes).unwrap(),
         ll::Message::Request(ll::Request {
@@ -173,26 +184,65 @@ fn a_consumer_request_encodes_through_the_codec() {
 }
 
 #[test]
-fn a_consumer_response_decodes_through_the_codec() {
+fn a_typed_sign_response_decodes_through_the_codec() {
     let bytes = ll::encode_response(&ll::Response {
         id: ID,
-        body: ll::response::Body::Keys(ll::response::Keys {
-            keys: vec![ExtendedKey([0x11; EXTENDED_KEY_LEN])],
-            fingerprint: Fingerprint([1, 2, 3, 4]),
-            vendor: "mock".to_string(),
-            model: "signer".to_string(),
-            version: ll::response::FirmwareVersion {
-                major: 1,
-                minor: 0,
-                patch: 0,
-                flag: ll::response::ReleaseFlag::Stable,
+        body: ll::response::Body::Signed(ll::response::Signed::Signatures(vec![
+            ll::response::SignatureEntry::Ecdsa {
+                input_index: 0,
+                public_key: PublicKey([0x02; 33]),
+                signature: vec![0x30; 71],
             },
-            capabilities: ll::response::Capabilities(0),
-        }),
+            ll::response::SignatureEntry::TapScript {
+                input_index: 1,
+                xonly_public_key: [0x11; 32],
+                tap_leaf_hash: [0x22; 32],
+                signature: vec![0x33; 64],
+            },
+            ll::response::SignatureEntry::MusigPartialSig {
+                input_index: 2,
+                participant: PublicKey([0x03; 33]),
+                aggregate: PublicKey([0x02; 33]),
+                leaf_hash: None,
+                signature: [0x44; MUSIG_PARTIAL_SIG_LEN],
+            },
+        ])),
     })
     .unwrap();
     assert_eq!(
         Mock::decode_response(&bytes).unwrap(),
-        MockResponse::Keys(vec![[0x11; EXTENDED_KEY_LEN]])
+        response::Response {
+            id: ID,
+            body: response::Body::Signed(response::Signed::Signatures(vec![
+                response::SignatureEntry::Ecdsa {
+                    input_index: 0,
+                    public_key: [0x02; 33],
+                    signature: vec![0x30; 71],
+                },
+                response::SignatureEntry::TapScript {
+                    input_index: 1,
+                    xonly_public_key: [0x11; 32],
+                    tap_leaf_hash: [0x22; 32],
+                    signature: vec![0x33; 64],
+                },
+                response::SignatureEntry::MusigPartialSig {
+                    input_index: 2,
+                    participant: [0x03; 33],
+                    aggregate: [0x02; 33],
+                    leaf_hash: None,
+                    signature: [0x44; MUSIG_PARTIAL_SIG_LEN],
+                },
+            ])),
+        }
     );
+}
+
+#[test]
+fn a_request_is_not_a_response() {
+    let bytes = ll::encode_request(&ll::Request {
+        id: ID,
+        body: ll::request::Body::GetInfo,
+    })
+    .unwrap();
+    assert_eq!(Mock::decode_response(&bytes), Err(MockError::NotAResponse));
 }

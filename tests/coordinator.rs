@@ -6,7 +6,7 @@ mod common;
 use bip377::{
     backend::{
         Backend,
-        rust_bitcoin::{Error, RustBitcoin, request, response},
+        rust_bitcoin::{Error, RustBitcoin},
     },
     bitcoin::{
         self, Amount, OutPoint, Psbt, ScriptBuf, Sequence, TapLeafHash, Transaction, TxIn, TxOut,
@@ -20,6 +20,7 @@ use bip377::{
         transaction::Version,
     },
     ll::{self, MessageType, RequestId, SignResponseKind},
+    request, response,
 };
 use bwk_address::{
     backend::rust_bitcoin::{Address, Error as AddressError, SilentPaymentAddress},
@@ -88,7 +89,7 @@ fn psbt() -> Psbt {
     .unwrap()
 }
 
-fn sent(body: request::Body) -> ll::request::Body {
+fn sent(body: request::Body<RustBitcoin>) -> ll::request::Body {
     let bytes = RustBitcoin::encode_request(&request::Request { id: ID, body }).unwrap();
     let ll::Message::Request(request) = ll::decode(&bytes).unwrap() else {
         panic!("not a request");
@@ -97,7 +98,7 @@ fn sent(body: request::Body) -> ll::request::Body {
     request.body
 }
 
-fn received(body: ll::response::Body) -> Result<response::Body, Error> {
+fn received(body: ll::response::Body) -> Result<response::Body<RustBitcoin>, Error> {
     let bytes = ll::encode_response(&ll::Response { id: ID, body }).unwrap();
     RustBitcoin::decode_response(&bytes).map(|response| {
         assert_eq!(response.id, ID);
@@ -109,7 +110,9 @@ fn signatures(entries: Vec<ll::response::SignatureEntry>) -> ll::response::Body 
     ll::response::Body::Signed(ll::response::Signed::Signatures(entries))
 }
 
-fn typed_signatures(entries: Vec<response::SignatureEntry>) -> response::Body {
+fn typed_signatures(
+    entries: Vec<response::SignatureEntry<RustBitcoin>>,
+) -> response::Body<RustBitcoin> {
     response::Body::Signed(response::Signed::Signatures(entries))
 }
 
@@ -146,7 +149,7 @@ fn register_descriptor_request_encodes_every_descriptor_form() {
     for (descriptor, expected) in [
         (None, None),
         (
-            Some(request::DescriptorBody::Bip380(Box::new(descriptor()))),
+            Some(request::DescriptorBody::Bip380(descriptor())),
             Some(ll::request::DescriptorBody::Bip380(
                 descriptor().to_string(),
             )),
@@ -223,7 +226,7 @@ fn a_bip380_descriptor_is_sent_as_its_string() {
     let body = sent(request::Body::RegisterDescriptor(
         request::RegisterDescriptor {
             descriptor_alias: "main".to_string(),
-            descriptor: Some(request::DescriptorBody::Bip380(Box::new(descriptor()))),
+            descriptor: Some(request::DescriptorBody::Bip380(descriptor())),
         },
     ));
     let ll::request::Body::RegisterDescriptor(ll::request::RegisterDescriptor {
@@ -308,7 +311,7 @@ fn prepare_nonces_request_encodes() {
             session_ref: Some([5, 6, 7, 8]),
             descriptor: Some(request::Descriptor {
                 alias: "main".to_string(),
-                descriptor: Some(request::DescriptorBody::Bip380(Box::new(descriptor()))),
+                descriptor: Some(request::DescriptorBody::Bip380(descriptor())),
                 proof: None,
             }),
             max_inputs: 2,
@@ -472,7 +475,7 @@ fn plain_responses_decode_unchanged() {
     );
 }
 
-fn received_uri(uri: &str) -> Result<response::Body, Error> {
+fn received_uri(uri: &str) -> Result<response::Body<RustBitcoin>, Error> {
     received(ll::response::Body::AddressUri(ll::response::AddressUri {
         uri: uri.to_string(),
     }))

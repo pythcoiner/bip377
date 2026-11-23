@@ -5,8 +5,14 @@
 use alloc::{string::String, vec::Vec};
 use core::fmt;
 
-use crate::ll::types::{
-    DerivationPath, ExtendedKey, Fingerprint, MUSIG_PARTIAL_SIG_LEN, PublicKey, SecretKey,
+use crate::{
+    ll::{
+        self,
+        types::{
+            DerivationPath, ExtendedKey, Fingerprint, MUSIG_PARTIAL_SIG_LEN, PublicKey, SecretKey,
+        },
+    },
+    response::NotAResponse,
 };
 
 #[cfg(feature = "bitcoin_0_32")]
@@ -15,23 +21,27 @@ pub use bitcoin_0_32 as bitcoin;
 #[cfg(feature = "bitcoin_0_32")]
 pub mod rust_bitcoin;
 
-pub trait Backend {
-    type DerivationPath;
-    type Xpub;
-    type Fingerprint;
-    type PublicKey;
-    type SecretKey;
-    type Psbt;
-    type Address;
-    type EcdsaSignature;
-    type TaprootSignature;
-    type XOnlyPublicKey;
-    type TapLeafHash;
-    type MusigPartialSignature;
-    type Descriptor;
+pub trait Backend: fmt::Debug + Clone + PartialEq + Eq {
+    type DerivationPath: fmt::Debug + Clone + PartialEq + Eq;
+    type Xpub: fmt::Debug + Clone + PartialEq + Eq;
+    type Fingerprint: fmt::Debug + Clone + PartialEq + Eq;
+    type PublicKey: fmt::Debug + Clone + PartialEq + Eq;
+    type SecretKey: fmt::Debug + Clone + PartialEq + Eq;
+    type Psbt: fmt::Debug + Clone + PartialEq + Eq;
+    type Address: fmt::Debug + Clone + PartialEq + Eq;
+    type EcdsaSignature: fmt::Debug + Clone + PartialEq + Eq;
+    type TaprootSignature: fmt::Debug + Clone + PartialEq + Eq;
+    type XOnlyPublicKey: fmt::Debug + Clone + PartialEq + Eq;
+    type TapLeafHash: fmt::Debug + Clone + PartialEq + Eq;
+    type MusigPartialSignature: fmt::Debug + Clone + PartialEq + Eq;
+    type Descriptor: fmt::Debug + Clone + PartialEq + Eq;
     type Request;
     type Response;
-    type Error: fmt::Debug + fmt::Display;
+    type Error: fmt::Debug
+        + fmt::Display
+        + From<ll::encode::Error>
+        + From<ll::decode::Error>
+        + From<NotAResponse>;
 
     #[cfg(feature = "coordinator")]
     fn encode_request(request: &Self::Request) -> Result<Vec<u8>, Self::Error>;
@@ -52,8 +62,9 @@ pub trait Backend {
     fn to_ll_psbt(psbt: &Self::Psbt) -> Vec<u8>;
     fn from_ll_psbt(psbt: &[u8]) -> Result<Self::Psbt, Self::Error>;
     fn to_ll_address(address: &Self::Address) -> String;
+    fn from_ll_address_uri(uri: &str) -> Result<Self::Address, Self::Error>;
     fn to_ll_descriptor(descriptor: &Self::Descriptor) -> String;
-    fn from_ll_address(address: &str) -> Result<Self::Address, Self::Error>;
+    fn to_ll_xpub_string(xpub: &Self::Xpub) -> String;
     fn from_ll_ecdsa_signature(signature: &[u8]) -> Result<Self::EcdsaSignature, Self::Error>;
     fn from_ll_taproot_signature(signature: &[u8]) -> Result<Self::TaprootSignature, Self::Error>;
     fn from_ll_xonly_public_key(key: &[u8; 32]) -> Result<Self::XOnlyPublicKey, Self::Error>;

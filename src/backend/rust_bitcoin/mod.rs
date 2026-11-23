@@ -4,6 +4,7 @@ use alloc::{
 };
 use core::fmt;
 
+use bwk_address::backend::{Backend as AddressBackend, rust_bitcoin::Address};
 use miniscript_12::{Descriptor, DescriptorPublicKey};
 
 use crate::{
@@ -11,7 +12,6 @@ use crate::{
         Backend,
         bitcoin::{
             self, Psbt, TapLeafHash, XOnlyPublicKey,
-            address::{self, NetworkUnchecked},
             bip32::{self, ChildNumber, Xpub},
             ecdsa,
             hashes::Hash,
@@ -25,11 +25,11 @@ use crate::{
             DerivationPath, ExtendedKey, Fingerprint, MUSIG_PARTIAL_SIG_LEN, PublicKey, SecretKey,
         },
     },
+    request::Request,
+    response::{NotAResponse, Response},
 };
 
-pub mod request;
-pub mod response;
-
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RustBitcoin {}
 
 #[derive(Debug)]
@@ -43,7 +43,6 @@ pub enum Error {
     UncompressedPublicKey,
     SecretKey(secp256k1::Error),
     Psbt(psbt::Error),
-    Address(address::ParseError),
     EcdsaSignature(ecdsa::Error),
     TaprootSignature(taproot::SigFromSliceError),
     XOnlyPublicKey(secp256k1::Error),
@@ -62,7 +61,6 @@ impl fmt::Display for Error {
             Self::UncompressedPublicKey => f.write_str("public key is not compressed"),
             Self::SecretKey(e) => write!(f, "invalid secret key: {e}"),
             Self::Psbt(e) => write!(f, "invalid PSBT: {e}"),
-            Self::Address(e) => write!(f, "invalid address: {e}"),
             Self::EcdsaSignature(e) => write!(f, "invalid ECDSA signature: {e}"),
             Self::TaprootSignature(e) => write!(f, "invalid taproot signature: {e}"),
             Self::XOnlyPublicKey(e) => write!(f, "invalid x-only public key: {e}"),
@@ -73,6 +71,24 @@ impl fmt::Display for Error {
 
 impl core::error::Error for Error {}
 
+impl From<ll::encode::Error> for Error {
+    fn from(error: ll::encode::Error) -> Self {
+        Self::Encode(error)
+    }
+}
+
+impl From<ll::decode::Error> for Error {
+    fn from(error: ll::decode::Error) -> Self {
+        Self::Decode(error)
+    }
+}
+
+impl From<NotAResponse> for Error {
+    fn from(_: NotAResponse) -> Self {
+        Self::NotAResponse
+    }
+}
+
 impl Backend for RustBitcoin {
     type DerivationPath = bip32::DerivationPath;
     type Xpub = Xpub;
@@ -80,28 +96,25 @@ impl Backend for RustBitcoin {
     type PublicKey = bitcoin::PublicKey;
     type SecretKey = secp256k1::SecretKey;
     type Psbt = Psbt;
-    type Address = bitcoin::Address<NetworkUnchecked>;
+    type Address = bwk_address::backend::rust_bitcoin::Address;
     type EcdsaSignature = ecdsa::Signature;
     type TaprootSignature = taproot::Signature;
     type XOnlyPublicKey = XOnlyPublicKey;
     type TapLeafHash = TapLeafHash;
     type MusigPartialSignature = secp256k1::Scalar;
     type Descriptor = Descriptor<DescriptorPublicKey>;
-    type Request = request::Request;
-    type Response = response::Response;
+    type Request = Request<Self>;
+    type Response = Response<Self>;
     type Error = Error;
 
     #[cfg(feature = "coordinator")]
-    fn encode_request(request: &request::Request) -> Result<Vec<u8>, Error> {
-        ll::encode_request(&request.into()).map_err(Error::Encode)
+    fn encode_request(request: &Request<Self>) -> Result<Vec<u8>, Error> {
+        crate::request::encode(request)
     }
 
     #[cfg(feature = "coordinator")]
-    fn decode_response(bytes: &[u8]) -> Result<response::Response, Error> {
-        match ll::decode(bytes).map_err(Error::Decode)? {
-            ll::Message::Response(response) => response.try_into(),
-            ll::Message::Request(_) => Err(Error::NotAResponse),
-        }
+    fn decode_response(bytes: &[u8]) -> Result<Response<Self>, Error> {
+        crate::response::decode(bytes)
     }
 
     fn to_ll_path(path: &bip32::DerivationPath) -> DerivationPath {
@@ -155,16 +168,24 @@ impl Backend for RustBitcoin {
         Psbt::deserialize(psbt).map_err(Error::Psbt)
     }
 
-    fn to_ll_address(address: &bitcoin::Address<NetworkUnchecked>) -> String {
-        address.assume_checked_ref().to_string()
+    fn to_ll_address(address: &Address) -> String {
+        match address {
+            Address::Bitcoin(address) => address.assume_checked_ref().to_string(),
+            Address::SilentPayment(address) => address.to_string(),
+        }
+    }
+
+    fn from_ll_address_uri(uri: &str) -> Result<Address, Error> {
+        <bwk_address::backend::rust_bitcoin::RustBitcoin as AddressBackend>::parse_uri(uri)
+            .map_err(Error::AddressUri)
     }
 
     fn to_ll_descriptor(descriptor: &Descriptor<DescriptorPublicKey>) -> String {
         descriptor.to_string()
     }
 
-    fn from_ll_address(address: &str) -> Result<bitcoin::Address<NetworkUnchecked>, Error> {
-        address.parse().map_err(Error::Address)
+    fn to_ll_xpub_string(xpub: &Xpub) -> String {
+        xpub.to_string()
     }
 
     fn from_ll_ecdsa_signature(signature: &[u8]) -> Result<ecdsa::Signature, Error> {

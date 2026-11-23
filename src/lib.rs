@@ -12,6 +12,8 @@ extern crate alloc;
 pub use bip377_ll as ll;
 
 pub mod backend;
+pub mod request;
+pub mod response;
 
 #[cfg(feature = "bitcoin_0_32")]
 pub use crate::backend::bitcoin;

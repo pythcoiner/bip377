@@ -1,17 +1,9 @@
 use alloc::{string::String, vec::Vec};
 
-use bwk_address::backend::{Backend as AddressBackend, rust_bitcoin::Address};
+use core::fmt;
 
 use crate::{
-    backend::{
-        Backend,
-        bitcoin::{
-            Psbt, PublicKey, TapLeafHash, XOnlyPublicKey,
-            bip32::{self, Xpub},
-            ecdsa, secp256k1, taproot,
-        },
-        rust_bitcoin::{self, RustBitcoin},
-    },
+    backend::Backend,
     ll::{
         self, RequestId,
         response::{
@@ -23,27 +15,27 @@ use crate::{
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Response {
+pub struct Response<B: Backend> {
     pub id: RequestId,
-    pub body: Body,
+    pub body: Body<B>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Body {
-    Info(Info),
-    Keys(Keys),
+pub enum Body<B: Backend> {
+    Info(Info<B>),
+    Keys(Keys<B>),
     Registration(Registration),
-    Address(Address),
-    Signed(Signed),
+    Address(B::Address),
+    Signed(Signed<B>),
     NoncesPrepared(NoncesPrepared),
     Unregistered(Unregistered),
     Error(ErrorBody),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Keys {
-    pub keys: Vec<Xpub>,
-    pub fingerprint: bip32::Fingerprint,
+pub struct Keys<B: Backend> {
+    pub keys: Vec<B::Xpub>,
+    pub fingerprint: B::Fingerprint,
     pub vendor: String,
     pub model: String,
     pub version: FirmwareVersion,
@@ -51,7 +43,7 @@ pub struct Keys {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Info {
+pub struct Info<B: Backend> {
     pub vendor: String,
     pub model: String,
     pub version: FirmwareVersion,
@@ -60,54 +52,54 @@ pub struct Info {
     pub networks: Networks,
     pub max_message: u32,
     pub max_alias: u8,
-    pub fingerprint: Option<bip32::Fingerprint>,
+    pub fingerprint: Option<B::Fingerprint>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Signed {
-    Psbt(Psbt),
-    Signatures(Vec<SignatureEntry>),
+pub enum Signed<B: Backend> {
+    Psbt(B::Psbt),
+    Signatures(Vec<SignatureEntry<B>>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum SignatureEntry {
+pub enum SignatureEntry<B: Backend> {
     Ecdsa {
         input_index: u32,
-        public_key: PublicKey,
-        signature: ecdsa::Signature,
+        public_key: B::PublicKey,
+        signature: B::EcdsaSignature,
     },
     TapKey {
         input_index: u32,
-        signature: taproot::Signature,
+        signature: B::TaprootSignature,
     },
     TapScript {
         input_index: u32,
-        xonly_public_key: XOnlyPublicKey,
-        tap_leaf_hash: TapLeafHash,
-        signature: taproot::Signature,
+        xonly_public_key: B::XOnlyPublicKey,
+        tap_leaf_hash: B::TapLeafHash,
+        signature: B::TaprootSignature,
     },
     MusigPubNonce {
         input_index: u32,
-        participant: PublicKey,
-        aggregate: PublicKey,
-        leaf_hash: Option<TapLeafHash>,
+        participant: B::PublicKey,
+        aggregate: B::PublicKey,
+        leaf_hash: Option<B::TapLeafHash>,
         nonce: [u8; MUSIG_PUB_NONCE_LEN],
     },
     MusigPartialSig {
         input_index: u32,
-        participant: PublicKey,
-        aggregate: PublicKey,
-        leaf_hash: Option<TapLeafHash>,
-        signature: secp256k1::Scalar,
+        participant: B::PublicKey,
+        aggregate: B::PublicKey,
+        leaf_hash: Option<B::TapLeafHash>,
+        signature: B::MusigPartialSignature,
     },
     SpEcdhShare {
         scope: SpScope,
-        scan_key: PublicKey,
-        share: PublicKey,
+        scan_key: B::PublicKey,
+        share: B::PublicKey,
     },
     SpDleqProof {
         scope: SpScope,
-        scan_key: PublicKey,
+        scan_key: B::PublicKey,
         proof: [u8; DLEQ_PROOF_LEN],
     },
     Unknown {
@@ -117,10 +109,29 @@ pub enum SignatureEntry {
     },
 }
 
-impl TryFrom<ll::Response> for Response {
-    type Error = rust_bitcoin::Error;
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct NotAResponse;
 
-    fn try_from(response: ll::Response) -> Result<Self, rust_bitcoin::Error> {
+impl fmt::Display for NotAResponse {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("expected a response, got a request")
+    }
+}
+
+impl core::error::Error for NotAResponse {}
+
+#[cfg(feature = "coordinator")]
+pub fn decode<B: Backend>(bytes: &[u8]) -> Result<Response<B>, B::Error> {
+    match ll::decode(bytes)? {
+        ll::Message::Response(response) => response.try_into(),
+        ll::Message::Request(_) => Err(NotAResponse.into()),
+    }
+}
+
+impl<B: Backend> TryFrom<ll::Response> for Response<B> {
+    type Error = B::Error;
+
+    fn try_from(response: ll::Response) -> Result<Self, B::Error> {
         Ok(Self {
             id: response.id,
             body: response.body.try_into()?,
@@ -128,20 +139,17 @@ impl TryFrom<ll::Response> for Response {
     }
 }
 
-impl TryFrom<ll::response::Body> for Body {
-    type Error = rust_bitcoin::Error;
+impl<B: Backend> TryFrom<ll::response::Body> for Body<B> {
+    type Error = B::Error;
 
-    fn try_from(body: ll::response::Body) -> Result<Self, rust_bitcoin::Error> {
+    fn try_from(body: ll::response::Body) -> Result<Self, B::Error> {
         Ok(match body {
             ll::response::Body::Info(info) => Self::Info(info.into()),
             ll::response::Body::Keys(keys) => Self::Keys(keys.try_into()?),
             ll::response::Body::Registration(registration) => Self::Registration(registration),
-            ll::response::Body::AddressUri(address) => Self::Address(
-                <bwk_address::backend::rust_bitcoin::RustBitcoin as AddressBackend>::parse_uri(
-                    &address.uri,
-                )
-                .map_err(rust_bitcoin::Error::AddressUri)?,
-            ),
+            ll::response::Body::AddressUri(address) => {
+                Self::Address(B::from_ll_address_uri(&address.uri)?)
+            }
             ll::response::Body::Signed(signed) => Self::Signed(signed.try_into()?),
             ll::response::Body::NoncesPrepared(nonces) => Self::NoncesPrepared(nonces),
             ll::response::Body::Unregistered(unregistered) => Self::Unregistered(unregistered),
@@ -150,7 +158,7 @@ impl TryFrom<ll::response::Body> for Body {
     }
 }
 
-impl From<ll::response::Info> for Info {
+impl<B: Backend> From<ll::response::Info> for Info<B> {
     fn from(info: ll::response::Info) -> Self {
         Self {
             vendor: info.vendor,
@@ -161,25 +169,22 @@ impl From<ll::response::Info> for Info {
             networks: info.networks,
             max_message: info.max_message,
             max_alias: info.max_alias,
-            fingerprint: info
-                .fingerprint
-                .as_ref()
-                .map(RustBitcoin::from_ll_fingerprint),
+            fingerprint: info.fingerprint.as_ref().map(B::from_ll_fingerprint),
         }
     }
 }
 
-impl TryFrom<ll::response::Keys> for Keys {
-    type Error = rust_bitcoin::Error;
+impl<B: Backend> TryFrom<ll::response::Keys> for Keys<B> {
+    type Error = B::Error;
 
-    fn try_from(keys: ll::response::Keys) -> Result<Self, rust_bitcoin::Error> {
+    fn try_from(keys: ll::response::Keys) -> Result<Self, B::Error> {
         Ok(Self {
             keys: keys
                 .keys
                 .iter()
-                .map(RustBitcoin::from_ll_xpub)
+                .map(B::from_ll_xpub)
                 .collect::<Result<_, _>>()?,
-            fingerprint: RustBitcoin::from_ll_fingerprint(&keys.fingerprint),
+            fingerprint: B::from_ll_fingerprint(&keys.fingerprint),
             vendor: keys.vendor,
             model: keys.model,
             version: keys.version,
@@ -188,12 +193,12 @@ impl TryFrom<ll::response::Keys> for Keys {
     }
 }
 
-impl TryFrom<ll::response::Signed> for Signed {
-    type Error = rust_bitcoin::Error;
+impl<B: Backend> TryFrom<ll::response::Signed> for Signed<B> {
+    type Error = B::Error;
 
-    fn try_from(signed: ll::response::Signed) -> Result<Self, rust_bitcoin::Error> {
+    fn try_from(signed: ll::response::Signed) -> Result<Self, B::Error> {
         match signed {
-            ll::response::Signed::Psbt(psbt) => Ok(Self::Psbt(RustBitcoin::from_ll_psbt(&psbt)?)),
+            ll::response::Signed::Psbt(psbt) => Ok(Self::Psbt(B::from_ll_psbt(&psbt)?)),
             ll::response::Signed::Signatures(entries) => Ok(Self::Signatures(
                 entries
                     .into_iter()
@@ -204,10 +209,10 @@ impl TryFrom<ll::response::Signed> for Signed {
     }
 }
 
-impl TryFrom<ll::response::SignatureEntry> for SignatureEntry {
-    type Error = rust_bitcoin::Error;
+impl<B: Backend> TryFrom<ll::response::SignatureEntry> for SignatureEntry<B> {
+    type Error = B::Error;
 
-    fn try_from(entry: ll::response::SignatureEntry) -> Result<Self, rust_bitcoin::Error> {
+    fn try_from(entry: ll::response::SignatureEntry) -> Result<Self, B::Error> {
         use crate::ll::response::SignatureEntry as WireEntry;
         Ok(match entry {
             WireEntry::Ecdsa {
@@ -216,15 +221,15 @@ impl TryFrom<ll::response::SignatureEntry> for SignatureEntry {
                 signature,
             } => Self::Ecdsa {
                 input_index,
-                public_key: RustBitcoin::from_ll_public_key(&public_key)?,
-                signature: RustBitcoin::from_ll_ecdsa_signature(&signature)?,
+                public_key: B::from_ll_public_key(&public_key)?,
+                signature: B::from_ll_ecdsa_signature(&signature)?,
             },
             WireEntry::TapKey {
                 input_index,
                 signature,
             } => Self::TapKey {
                 input_index,
-                signature: RustBitcoin::from_ll_taproot_signature(&signature)?,
+                signature: B::from_ll_taproot_signature(&signature)?,
             },
             WireEntry::TapScript {
                 input_index,
@@ -233,9 +238,9 @@ impl TryFrom<ll::response::SignatureEntry> for SignatureEntry {
                 signature,
             } => Self::TapScript {
                 input_index,
-                xonly_public_key: RustBitcoin::from_ll_xonly_public_key(&xonly_public_key)?,
-                tap_leaf_hash: RustBitcoin::from_ll_tap_leaf_hash(&tap_leaf_hash),
-                signature: RustBitcoin::from_ll_taproot_signature(&signature)?,
+                xonly_public_key: B::from_ll_xonly_public_key(&xonly_public_key)?,
+                tap_leaf_hash: B::from_ll_tap_leaf_hash(&tap_leaf_hash),
+                signature: B::from_ll_taproot_signature(&signature)?,
             },
             WireEntry::MusigPubNonce {
                 input_index,
@@ -245,9 +250,9 @@ impl TryFrom<ll::response::SignatureEntry> for SignatureEntry {
                 nonce,
             } => Self::MusigPubNonce {
                 input_index,
-                participant: RustBitcoin::from_ll_public_key(&participant)?,
-                aggregate: RustBitcoin::from_ll_public_key(&aggregate)?,
-                leaf_hash: leaf_hash.as_ref().map(RustBitcoin::from_ll_tap_leaf_hash),
+                participant: B::from_ll_public_key(&participant)?,
+                aggregate: B::from_ll_public_key(&aggregate)?,
+                leaf_hash: leaf_hash.as_ref().map(B::from_ll_tap_leaf_hash),
                 nonce,
             },
             WireEntry::MusigPartialSig {
@@ -258,10 +263,10 @@ impl TryFrom<ll::response::SignatureEntry> for SignatureEntry {
                 signature,
             } => Self::MusigPartialSig {
                 input_index,
-                participant: RustBitcoin::from_ll_public_key(&participant)?,
-                aggregate: RustBitcoin::from_ll_public_key(&aggregate)?,
-                leaf_hash: leaf_hash.as_ref().map(RustBitcoin::from_ll_tap_leaf_hash),
-                signature: RustBitcoin::from_ll_musig_partial_signature(&signature)?,
+                participant: B::from_ll_public_key(&participant)?,
+                aggregate: B::from_ll_public_key(&aggregate)?,
+                leaf_hash: leaf_hash.as_ref().map(B::from_ll_tap_leaf_hash),
+                signature: B::from_ll_musig_partial_signature(&signature)?,
             },
             WireEntry::SpEcdhShare {
                 scope,
@@ -269,8 +274,8 @@ impl TryFrom<ll::response::SignatureEntry> for SignatureEntry {
                 share,
             } => Self::SpEcdhShare {
                 scope,
-                scan_key: RustBitcoin::from_ll_public_key(&scan_key)?,
-                share: RustBitcoin::from_ll_public_key(&share)?,
+                scan_key: B::from_ll_public_key(&scan_key)?,
+                share: B::from_ll_public_key(&share)?,
             },
             WireEntry::SpDleqProof {
                 scope,
@@ -278,7 +283,7 @@ impl TryFrom<ll::response::SignatureEntry> for SignatureEntry {
                 proof,
             } => Self::SpDleqProof {
                 scope,
-                scan_key: RustBitcoin::from_ll_public_key(&scan_key)?,
+                scan_key: B::from_ll_public_key(&scan_key)?,
                 proof,
             },
             WireEntry::Unknown {
