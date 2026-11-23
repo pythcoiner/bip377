@@ -24,7 +24,7 @@ bip377-ll = { version = "0.0.1", path = "bip377-ll", default-features = false }
 # `std` is left to the caller: the backend itself only needs `alloc`.
 bitcoin_0_32 = { package = "bitcoin", version = "0.32", default-features = false, optional = true }
 miniscript_12 = { package = "miniscript", version = "12.0", default-features = false, features = ["no-std"], optional = true }
-bwk-address = { git = "https://github.com/bwk-bitcoin/bwk.git", rev = "55d0e3455b525d59ecf5d331c7d9844e67b8c671", default-features = false, optional = true }
+bwk-address = { git = "https://github.com/bwk-bitcoin/bwk.git", rev = "9d5c170fa5763adebb3859acf4adf72678b52828", default-features = false, optional = true }
 
 [features]
 default = ["bitcoin_latest", "coordinator", "signer"]
