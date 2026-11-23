@@ -21,16 +21,17 @@ The codec is imported from bwk.
 The codec carries keys and paths as raw bytes (`ExtendedKey`, `Fingerprint`,
 `PublicKey`, `SecretKey`, `DerivationPath`). The orphan rule rules out `From` impls
 between them and the `bitcoin` types, so the backend converts through the
-`Backend` trait, implemented by `bip377::backend::Active` for the selected release:
+`Backend` trait, implemented by `bip377::backend::rust_bitcoin::RustBitcoin` for
+the selected release:
 
 ```rust
 use bip377::{
-    backend::{Active, Backend},
+    backend::{Backend, rust_bitcoin::RustBitcoin},
     ll::{Message, decode},
 };
 
-let path = Active::to_ll_path(&"m/84'/0'/0'".parse()?);
-let xpub = Active::from_ll_xpub(&extended_key)?;
+let path = RustBitcoin::to_ll_path(&"m/84'/0'/0'".parse()?);
+let xpub = RustBitcoin::from_ll_xpub(&extended_key)?;
 
 match decode(bytes)? {
     Message::Request(request) => { /* a signer answers it */ }
@@ -59,7 +60,7 @@ enable the one the consumer plays, or both. At least one is required. The
 `Backend` trait is always available, so a consumer can implement its own backend;
 the `bitcoin_*` features provide the rust-bitcoin one. Without one, `bip377` is the
 `bip377::ll` re-export and the `Backend` trait. A new `bitcoin` major release gets
-its own feature.
+its own feature, and the release features are mutually exclusive.
 
 [`examples/`](examples) holds one downstream crate pinned at `bitcoin` 0.32.0, the
 oldest supported release, and one at 0.32.5, the release Liana builds with. Both

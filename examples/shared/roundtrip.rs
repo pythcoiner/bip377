@@ -2,7 +2,7 @@
 //! compiles when bip377's backend is that same release.
 
 use bip377::{
-    backend::{Active, Backend},
+    backend::{Backend, rust_bitcoin::RustBitcoin},
     ll::{
         Message, Request, RequestId, Response, decode, encode_request, encode_response, request,
         response,
@@ -30,9 +30,9 @@ fn main() {
         body: request::Body::RegisterDescriptor(request::RegisterDescriptor {
             descriptor_alias: "main".to_string(),
             descriptor: Some(request::DescriptorBody::SpKeys(request::SpKeys {
-                fingerprint: Active::to_ll_fingerprint(&fingerprint),
-                spend_path: Active::to_ll_path(&spend_path),
-                scan: request::Scan::Key(Active::to_ll_secret_key(&scan_key)),
+                fingerprint: RustBitcoin::to_ll_fingerprint(&fingerprint),
+                spend_path: RustBitcoin::to_ll_path(&spend_path),
+                scan: request::Scan::Key(RustBitcoin::to_ll_secret_key(&scan_key)),
             })),
         }),
     };
@@ -50,16 +50,19 @@ fn main() {
     let request::Scan::Key(scan) = keys.scan else {
         panic!("not a scan key");
     };
-    assert_eq!(Active::from_ll_fingerprint(&keys.fingerprint), fingerprint);
-    assert_eq!(Active::from_ll_path(&keys.spend_path), spend_path);
-    assert_eq!(Active::from_ll_secret_key(&scan), Ok(scan_key));
+    assert_eq!(
+        RustBitcoin::from_ll_fingerprint(&keys.fingerprint),
+        fingerprint
+    );
+    assert_eq!(RustBitcoin::from_ll_path(&keys.spend_path), spend_path);
+    assert_eq!(RustBitcoin::from_ll_secret_key(&scan), Ok(scan_key));
 
     let response = Response {
         id: ID,
         body: response::Body::Signed(response::Signed::Signatures(vec![
             response::SignatureEntry::Ecdsa {
                 input_index: 0,
-                public_key: Active::to_ll_public_key(&public_key).expect("compressed key"),
+                public_key: RustBitcoin::to_ll_public_key(&public_key).expect("compressed key"),
                 signature: vec![0x30; 71],
             },
         ])),
@@ -80,13 +83,13 @@ fn main() {
     else {
         panic!("not a single ecdsa entry");
     };
-    assert_eq!(Active::from_ll_public_key(key), Ok(public_key));
+    assert_eq!(RustBitcoin::from_ll_public_key(key), Ok(public_key));
 
     let response = Response {
         id: ID,
         body: response::Body::Keys(response::Keys {
-            keys: vec![Active::to_ll_xpub(&xpub)],
-            fingerprint: Active::to_ll_fingerprint(&fingerprint),
+            keys: vec![RustBitcoin::to_ll_xpub(&xpub)],
+            fingerprint: RustBitcoin::to_ll_fingerprint(&fingerprint),
             vendor: "example".to_string(),
             model: "roundtrip".to_string(),
             version: response::FirmwareVersion {
@@ -109,6 +112,9 @@ fn main() {
     let [public] = keys.keys.as_slice() else {
         panic!("not a single key");
     };
-    assert_eq!(Active::from_ll_xpub(public), Ok(xpub));
-    assert_eq!(Active::from_ll_fingerprint(&keys.fingerprint), fingerprint);
+    assert_eq!(RustBitcoin::from_ll_xpub(public), Ok(xpub));
+    assert_eq!(
+        RustBitcoin::from_ll_fingerprint(&keys.fingerprint),
+        fingerprint
+    );
 }
