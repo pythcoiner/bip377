@@ -12,7 +12,7 @@ use crate::{
             DerivationPath, ExtendedKey, Fingerprint, MUSIG_PARTIAL_SIG_LEN, PublicKey, SecretKey,
         },
     },
-    response::NotAResponse,
+    response::{Mismatch, NotAResponse},
 };
 
 #[cfg(feature = "bitcoin_0_32")]
@@ -41,7 +41,8 @@ pub trait Backend: fmt::Debug + Clone + PartialEq + Eq {
         + fmt::Display
         + From<ll::encode::Error>
         + From<ll::decode::Error>
-        + From<NotAResponse>;
+        + From<NotAResponse>
+        + From<Mismatch>;
 
     #[cfg(feature = "coordinator")]
     fn encode_request(request: &Self::Request) -> Result<Vec<u8>, Self::Error>;
@@ -61,6 +62,7 @@ pub trait Backend: fmt::Debug + Clone + PartialEq + Eq {
     fn from_ll_secret_key(key: &SecretKey) -> Result<Self::SecretKey, Self::Error>;
     fn to_ll_psbt(psbt: &Self::Psbt) -> Vec<u8>;
     fn from_ll_psbt(psbt: &[u8]) -> Result<Self::Psbt, Self::Error>;
+    fn psbt_input_count(psbt: &Self::Psbt) -> usize;
     fn to_ll_address(address: &Self::Address) -> String;
     fn from_ll_address_uri(uri: &str) -> Result<Self::Address, Self::Error>;
     fn to_ll_descriptor(descriptor: &Self::Descriptor) -> String;

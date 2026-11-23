@@ -434,6 +434,258 @@ fn keys_response_with_an_invalid_xpub_is_refused() {
     assert!(matches!(body, Err(Error::ExtendedKey(_))));
 }
 
+fn typed_keys(count: usize) -> response::Body<RustBitcoin> {
+    response::Body::Keys(response::Keys {
+        keys: vec![bitcoin_xpub(); count],
+        fingerprint: bitcoin_xpub().fingerprint(),
+        vendor: "bip".to_string(),
+        model: "bip-signer".to_string(),
+        version: firmware_version(),
+        capabilities: ll::response::Capabilities(0),
+    })
+}
+
+fn get_keys(count: usize) -> request::Body<RustBitcoin> {
+    request::Body::GetKeys(request::GetKeys {
+        keys: vec![path("m/48'/0'/0'/2'"); count],
+    })
+}
+
+fn typed_error(message_type: MessageType) -> response::Body<RustBitcoin> {
+    response::Body::Error(ll::response::ErrorBody {
+        message_type,
+        error: ll::response::Error::UserDeclined,
+        message: "declined".to_string(),
+    })
+}
+
+fn validated(
+    request: request::Body<RustBitcoin>,
+    response: response::Body<RustBitcoin>,
+) -> Result<(), Error> {
+    response::validate(
+        &request::Request {
+            id: ID,
+            body: request,
+        },
+        &response::Response {
+            id: ID,
+            body: response,
+        },
+    )
+}
+
+fn registration(alias: &str, registered: bool) -> response::Body<RustBitcoin> {
+    response::Body::Registration(ll::response::Registration {
+        descriptor_alias: alias.to_string(),
+        registered,
+        stored: None,
+        proof: None,
+    })
+}
+
+fn register(alias: &str) -> request::Body<RustBitcoin> {
+    request::Body::RegisterDescriptor(request::RegisterDescriptor {
+        descriptor_alias: alias.to_string(),
+        descriptor: None,
+    })
+}
+
+fn verify_address(address: Option<Address>) -> request::Body<RustBitcoin> {
+    request::Body::VerifyAddress(request::VerifyAddress {
+        descriptor_alias: "main".to_string(),
+        derivation_path: path("m/0/1"),
+        address,
+        descriptor: None,
+        proof: None,
+    })
+}
+
+fn sign() -> request::Body<RustBitcoin> {
+    request::Body::Sign(request::Sign {
+        descriptors: vec![],
+        psbt: psbt(),
+        want_kind: None,
+        accept_trimmed: false,
+    })
+}
+
+fn tap_key_signature(input_index: u32) -> response::Body<RustBitcoin> {
+    typed_signatures(vec![response::SignatureEntry::TapKey {
+        input_index,
+        signature: taproot::Signature::from_slice(&[0x01; 64]).unwrap(),
+    }])
+}
+
+#[test]
+fn keys_answering_every_path_are_valid() {
+    assert!(validated(get_keys(2), typed_keys(2)).is_ok());
+}
+
+#[test]
+fn fewer_keys_than_paths_are_refused() {
+    assert!(matches!(
+        validated(get_keys(2), typed_keys(1)),
+        Err(Error::Mismatch(response::Mismatch::KeyCount {
+            expected: 2,
+            received: 1
+        }))
+    ));
+}
+
+#[test]
+fn more_keys_than_paths_are_refused() {
+    assert!(matches!(
+        validated(get_keys(1), typed_keys(3)),
+        Err(Error::Mismatch(response::Mismatch::KeyCount {
+            expected: 1,
+            received: 3
+        }))
+    ));
+}
+
+#[test]
+fn a_response_to_another_request_is_refused() {
+    let other = RequestId([9, 9]);
+    assert!(matches!(
+        response::validate(
+            &request::Request {
+                id: ID,
+                body: get_keys(1)
+            },
+            &response::Response {
+                id: other,
+                body: typed_keys(1)
+            },
+        ),
+        Err(Error::Mismatch(response::Mismatch::RequestId {
+            expected: ID,
+            received
+        })) if received == other
+    ));
+}
+
+#[test]
+fn a_response_of_another_kind_is_refused() {
+    assert!(matches!(
+        validated(request::Body::GetInfo, typed_keys(1)),
+        Err(Error::Mismatch(response::Mismatch::MessageType {
+            expected: MessageType::GetInfo,
+            received: MessageType::GetKeys
+        }))
+    ));
+}
+
+#[test]
+fn an_error_about_the_request_is_valid() {
+    assert!(validated(get_keys(1), typed_error(MessageType::GetKeys)).is_ok());
+}
+
+#[test]
+fn an_unreadable_request_error_is_valid() {
+    assert!(
+        response::validate(
+            &request::Request {
+                id: ID,
+                body: get_keys(1)
+            },
+            &response::Response {
+                id: RequestId::UNREADABLE_REQUEST,
+                body: typed_error(MessageType::UnreadableRequest)
+            },
+        )
+        .is_ok()
+    );
+}
+
+#[test]
+fn an_error_about_another_request_is_refused() {
+    assert!(matches!(
+        validated(get_keys(1), typed_error(MessageType::Signing)),
+        Err(Error::Mismatch(response::Mismatch::MessageType {
+            expected: MessageType::GetKeys,
+            received: MessageType::Signing
+        }))
+    ));
+}
+
+#[test]
+fn a_registration_of_the_requested_alias_is_valid() {
+    assert!(validated(register("main"), registration("main", true)).is_ok());
+    assert!(validated(register("main"), registration("main", false)).is_ok());
+}
+
+#[test]
+fn a_registration_of_another_alias_is_refused() {
+    assert!(matches!(
+        validated(register("main"), registration("other", true)),
+        Err(Error::Mismatch(response::Mismatch::Alias { expected, received }))
+            if expected == "main" && received == "other"
+    ));
+}
+
+#[test]
+fn the_requested_address_is_valid() {
+    let requested = Address::Bitcoin(address(ADDRESS));
+    assert!(
+        validated(
+            verify_address(Some(requested.clone())),
+            response::Body::Address(requested)
+        )
+        .is_ok()
+    );
+}
+
+#[test]
+fn any_address_is_valid_when_none_was_requested() {
+    assert!(
+        validated(
+            verify_address(None),
+            response::Body::Address(Address::SilentPayment(sp_address()))
+        )
+        .is_ok()
+    );
+}
+
+#[test]
+fn another_address_is_refused() {
+    assert!(matches!(
+        validated(
+            verify_address(Some(Address::Bitcoin(address(ADDRESS)))),
+            response::Body::Address(Address::SilentPayment(sp_address()))
+        ),
+        Err(Error::Mismatch(response::Mismatch::Address { expected, received }))
+            if expected == ADDRESS && received == SP_ADDRESS
+    ));
+}
+
+#[test]
+fn signatures_for_existing_inputs_are_valid() {
+    assert!(validated(sign(), tap_key_signature(0)).is_ok());
+}
+
+#[test]
+fn a_signature_for_a_missing_input_is_refused() {
+    assert!(matches!(
+        validated(sign(), tap_key_signature(1)),
+        Err(Error::Mismatch(response::Mismatch::InputIndex {
+            index: 1,
+            inputs: 1
+        }))
+    ));
+}
+
+#[test]
+fn a_signed_psbt_is_valid() {
+    assert!(
+        validated(
+            sign(),
+            response::Body::Signed(response::Signed::Psbt(psbt()))
+        )
+        .is_ok()
+    );
+}
+
 #[test]
 fn plain_responses_decode_unchanged() {
     let registration = ll::response::Registration {

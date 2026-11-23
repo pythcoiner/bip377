@@ -2,7 +2,7 @@ use alloc::{format, string::String, vec::Vec};
 
 use crate::{
     backend::Backend,
-    ll::{self, RequestId, SignResponseKind, request::UnregisterDescriptor},
+    ll::{self, MessageType, RequestId, SignResponseKind, request::UnregisterDescriptor},
 };
 
 const HARDENED: u32 = 0x8000_0000;
@@ -22,6 +22,20 @@ pub enum Body<B: Backend> {
     Sign(Sign<B>),
     PrepareNonces(PrepareNonces<B>),
     UnregisterDescriptor(UnregisterDescriptor),
+}
+
+impl<B: Backend> Body<B> {
+    pub fn message_type(&self) -> MessageType {
+        match self {
+            Self::GetInfo => MessageType::GetInfo,
+            Self::GetKeys(_) => MessageType::GetKeys,
+            Self::RegisterDescriptor(_) => MessageType::RegisterDescriptor,
+            Self::VerifyAddress(_) => MessageType::AddressVerification,
+            Self::Sign(_) => MessageType::Signing,
+            Self::PrepareNonces(_) => MessageType::NoncePreparation,
+            Self::UnregisterDescriptor(_) => MessageType::UnregisterDescriptor,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

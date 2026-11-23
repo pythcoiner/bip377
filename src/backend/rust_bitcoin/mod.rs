@@ -26,7 +26,7 @@ use crate::{
         },
     },
     request::Request,
-    response::{NotAResponse, Response},
+    response::{Mismatch, NotAResponse, Response},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -37,6 +37,7 @@ pub enum Error {
     Encode(ll::encode::Error),
     Decode(ll::decode::Error),
     NotAResponse,
+    Mismatch(Mismatch),
     AddressUri(bwk_address::backend::rust_bitcoin::Error),
     ExtendedKey(bip32::Error),
     PublicKey(FromSliceError),
@@ -55,6 +56,7 @@ impl fmt::Display for Error {
             Self::Encode(e) => write!(f, "encode: {e}"),
             Self::Decode(e) => write!(f, "decode: {e}"),
             Self::NotAResponse => f.write_str("expected a response, got a request"),
+            Self::Mismatch(e) => e.fmt(f),
             Self::AddressUri(e) => e.fmt(f),
             Self::ExtendedKey(e) => write!(f, "invalid extended key: {e}"),
             Self::PublicKey(e) => write!(f, "invalid public key: {e}"),
@@ -86,6 +88,12 @@ impl From<ll::decode::Error> for Error {
 impl From<NotAResponse> for Error {
     fn from(_: NotAResponse) -> Self {
         Self::NotAResponse
+    }
+}
+
+impl From<Mismatch> for Error {
+    fn from(error: Mismatch) -> Self {
+        Self::Mismatch(error)
     }
 }
 
@@ -166,6 +174,10 @@ impl Backend for RustBitcoin {
 
     fn from_ll_psbt(psbt: &[u8]) -> Result<Psbt, Error> {
         Psbt::deserialize(psbt).map_err(Error::Psbt)
+    }
+
+    fn psbt_input_count(psbt: &Psbt) -> usize {
+        psbt.inputs.len()
     }
 
     fn to_ll_address(address: &Address) -> String {

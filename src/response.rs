@@ -5,7 +5,7 @@ use core::fmt;
 use crate::{
     backend::Backend,
     ll::{
-        self, RequestId,
+        self, MessageType, RequestId,
         response::{
             Capabilities, ErrorBody, FirmwareVersion, Networks, NoncesPrepared, Registration,
             SpScope, State, Unregistered,
@@ -13,6 +13,9 @@ use crate::{
         types::{DLEQ_PROOF_LEN, MUSIG_PUB_NONCE_LEN},
     },
 };
+
+#[cfg(feature = "coordinator")]
+use crate::request::{self, Request};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Response<B: Backend> {
@@ -30,6 +33,21 @@ pub enum Body<B: Backend> {
     NoncesPrepared(NoncesPrepared),
     Unregistered(Unregistered),
     Error(ErrorBody),
+}
+
+impl<B: Backend> Body<B> {
+    pub fn message_type(&self) -> MessageType {
+        match self {
+            Self::Info(_) => MessageType::GetInfo,
+            Self::Keys(_) => MessageType::GetKeys,
+            Self::Registration(_) => MessageType::RegisterDescriptor,
+            Self::Address(_) => MessageType::AddressVerification,
+            Self::Signed(_) => MessageType::Signing,
+            Self::NoncesPrepared(_) => MessageType::NoncePreparation,
+            Self::Unregistered(_) => MessageType::UnregisterDescriptor,
+            Self::Error(error) => error.message_type,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -109,6 +127,20 @@ pub enum SignatureEntry<B: Backend> {
     },
 }
 
+impl<B: Backend> SignatureEntry<B> {
+    pub fn input_index(&self) -> Option<u32> {
+        match self {
+            Self::Ecdsa { input_index, .. }
+            | Self::TapKey { input_index, .. }
+            | Self::TapScript { input_index, .. }
+            | Self::MusigPubNonce { input_index, .. }
+            | Self::MusigPartialSig { input_index, .. }
+            | Self::Unknown { input_index, .. } => Some(*input_index),
+            Self::SpEcdhShare { .. } | Self::SpDleqProof { .. } => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct NotAResponse;
 
@@ -120,11 +152,133 @@ impl fmt::Display for NotAResponse {
 
 impl core::error::Error for NotAResponse {}
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Mismatch {
+    RequestId {
+        expected: RequestId,
+        received: RequestId,
+    },
+    MessageType {
+        expected: MessageType,
+        received: MessageType,
+    },
+    KeyCount {
+        expected: usize,
+        received: usize,
+    },
+    Alias {
+        expected: String,
+        received: String,
+    },
+    Address {
+        expected: String,
+        received: String,
+    },
+    InputIndex {
+        index: u32,
+        inputs: usize,
+    },
+}
+
+impl fmt::Display for Mismatch {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::RequestId { expected, received } => write!(
+                f,
+                "expected a response to request {expected:?}, got one to {received:?}"
+            ),
+            Self::MessageType { expected, received } => {
+                write!(f, "expected a {expected:?} response, got {received:?}")
+            }
+            Self::KeyCount { expected, received } => {
+                write!(
+                    f,
+                    "{expected} keys were asked for, {received} were returned"
+                )
+            }
+            Self::Alias { expected, received } => {
+                write!(f, "expected alias {expected}, got {received}")
+            }
+            Self::Address { expected, received } => {
+                write!(f, "expected address {expected}, got {received}")
+            }
+            Self::InputIndex { index, inputs } => write!(
+                f,
+                "signature names input {index}, the transaction has {inputs} inputs"
+            ),
+        }
+    }
+}
+
+impl core::error::Error for Mismatch {}
+
 #[cfg(feature = "coordinator")]
 pub fn decode<B: Backend>(bytes: &[u8]) -> Result<Response<B>, B::Error> {
     match ll::decode(bytes)? {
         ll::Message::Response(response) => response.try_into(),
         ll::Message::Request(_) => Err(NotAResponse.into()),
+    }
+}
+
+#[cfg(feature = "coordinator")]
+pub fn validate<B: Backend>(request: &Request<B>, response: &Response<B>) -> Result<(), B::Error> {
+    let expected = request.body.message_type();
+    let received = response.body.message_type();
+    if received == MessageType::UnreadableRequest {
+        return Ok(());
+    }
+    if response.id != request.id {
+        return Err(Mismatch::RequestId {
+            expected: request.id,
+            received: response.id,
+        }
+        .into());
+    }
+    if received != expected {
+        return Err(Mismatch::MessageType { expected, received }.into());
+    }
+    match (&request.body, &response.body) {
+        (request::Body::GetKeys(get_keys), Body::Keys(keys))
+            if keys.keys.len() != get_keys.keys.len() =>
+        {
+            Err(Mismatch::KeyCount {
+                expected: get_keys.keys.len(),
+                received: keys.keys.len(),
+            }
+            .into())
+        }
+        (request::Body::RegisterDescriptor(register), Body::Registration(registration))
+            if registration.descriptor_alias != register.descriptor_alias =>
+        {
+            Err(Mismatch::Alias {
+                expected: register.descriptor_alias.clone(),
+                received: registration.descriptor_alias.clone(),
+            }
+            .into())
+        }
+        (
+            request::Body::VerifyAddress(request::VerifyAddress {
+                address: Some(expected),
+                ..
+            }),
+            Body::Address(received),
+        ) if received != expected => Err(Mismatch::Address {
+            expected: B::to_ll_address(expected),
+            received: B::to_ll_address(received),
+        }
+        .into()),
+        (request::Body::Sign(sign), Body::Signed(Signed::Signatures(entries))) => {
+            let inputs = B::psbt_input_count(&sign.psbt);
+            match entries
+                .iter()
+                .filter_map(SignatureEntry::input_index)
+                .find(|&index| index as usize >= inputs)
+            {
+                Some(index) => Err(Mismatch::InputIndex { index, inputs }.into()),
+                None => Ok(()),
+            }
+        }
+        _ => Ok(()),
     }
 }
 

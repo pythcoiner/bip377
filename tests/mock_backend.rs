@@ -21,6 +21,7 @@ enum MockError {
     Encode(ll::encode::Error),
     Decode(ll::decode::Error),
     NotAResponse,
+    Mismatch(response::Mismatch),
 }
 
 impl fmt::Display for MockError {
@@ -44,6 +45,12 @@ impl From<ll::decode::Error> for MockError {
 impl From<response::NotAResponse> for MockError {
     fn from(_: response::NotAResponse) -> Self {
         Self::NotAResponse
+    }
+}
+
+impl From<response::Mismatch> for MockError {
+    fn from(error: response::Mismatch) -> Self {
+        Self::Mismatch(error)
     }
 }
 
@@ -122,6 +129,10 @@ impl Backend for Mock {
 
     fn from_ll_psbt(psbt: &[u8]) -> Result<Vec<u8>, MockError> {
         Ok(psbt.to_vec())
+    }
+
+    fn psbt_input_count(psbt: &Vec<u8>) -> usize {
+        psbt.len()
     }
 
     fn to_ll_address(address: &String) -> String {
@@ -245,4 +256,34 @@ fn a_request_is_not_a_response() {
     })
     .unwrap();
     assert_eq!(Mock::decode_response(&bytes), Err(MockError::NotAResponse));
+}
+
+#[test]
+fn a_signature_for_a_missing_input_is_refused() {
+    assert_eq!(
+        response::validate::<Mock>(
+            &request::Request {
+                id: ID,
+                body: request::Body::Sign(request::Sign {
+                    descriptors: vec![],
+                    psbt: vec![0; 2],
+                    want_kind: None,
+                    accept_trimmed: false,
+                }),
+            },
+            &response::Response {
+                id: ID,
+                body: response::Body::Signed(response::Signed::Signatures(vec![
+                    response::SignatureEntry::TapKey {
+                        input_index: 2,
+                        signature: vec![0x01; 64],
+                    },
+                ])),
+            },
+        ),
+        Err(MockError::Mismatch(response::Mismatch::InputIndex {
+            index: 2,
+            inputs: 2
+        }))
+    );
 }
