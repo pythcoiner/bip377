@@ -5,6 +5,7 @@ cargo test -p bip377-ll --verbose --color always -- --nocapture
 cargo test -p bip377-ll --features ffi --verbose --color always -- --nocapture
 cargo test --verbose --color always -- --nocapture
 cargo test --no-default-features --features signer --verbose --color always -- --nocapture
+cargo test --no-default-features --features coordinator,signer --verbose --color always -- --nocapture
 cargo test --no-default-features --features bitcoin_0_32,signer --verbose --color always -- --nocapture
 # downstream crates built against the oldest and Liana's bitcoin 0.32 release
 cargo run --manifest-path examples/bitcoin_0_32_0/Cargo.toml

@@ -29,7 +29,7 @@ fn bitcoin_xpub() -> Xpub {
 fn xpub_round_trips() {
     let key = RustBitcoin::to_ll_xpub(&bitcoin_xpub());
     assert_eq!(key, xpub());
-    assert_eq!(RustBitcoin::from_ll_xpub(&key), Ok(bitcoin_xpub()));
+    assert_eq!(RustBitcoin::from_ll_xpub(&key).unwrap(), bitcoin_xpub());
 }
 
 #[test]
@@ -55,16 +55,16 @@ fn a_public_key_round_trips() {
     let key = bitcoin::PublicKey::new(bitcoin_xpub().public_key);
     let wire = RustBitcoin::to_ll_public_key(&key).unwrap();
     assert_eq!(wire, xpub_key());
-    assert_eq!(RustBitcoin::from_ll_public_key(&wire), Ok(key));
+    assert_eq!(RustBitcoin::from_ll_public_key(&wire).unwrap(), key);
 }
 
 #[test]
 fn an_uncompressed_public_key_is_refused() {
     let key = bitcoin::PublicKey::new_uncompressed(bitcoin_xpub().public_key);
-    assert_eq!(
+    assert!(matches!(
         RustBitcoin::to_ll_public_key(&key),
         Err(Error::UncompressedPublicKey)
-    );
+    ));
 }
 
 #[test]
@@ -81,13 +81,13 @@ fn a_scan_key_round_trips() {
     let key = secp256k1::SecretKey::from_slice(&FOREIGN_SCAN_KEY).unwrap();
     let wire = RustBitcoin::to_ll_secret_key(&key);
     assert_eq!(wire, SecretKey(FOREIGN_SCAN_KEY));
-    assert_eq!(RustBitcoin::from_ll_secret_key(&wire), Ok(key));
+    assert_eq!(RustBitcoin::from_ll_secret_key(&wire).unwrap(), key);
 }
 
 #[test]
 fn a_zero_secret_key_is_refused() {
-    assert_eq!(
+    assert!(matches!(
         RustBitcoin::from_ll_secret_key(&SecretKey([0; 32])),
         Err(Error::SecretKey(secp256k1::Error::InvalidSecretKey))
-    );
+    ));
 }

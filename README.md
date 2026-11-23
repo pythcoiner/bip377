@@ -15,45 +15,146 @@ The codec is imported from bwk.
 - [`bip377-ll`](bip377-ll/README.md): the codec. `no_std` plus `alloc` with no
   dependency at all, so a bare-metal signer can depend on it directly. Its `ffi`
   feature adds the C binding ([`bip377-ll/include/bip377.h`](bip377-ll/include/bip377.h)).
-- `bip377`: re-exports `bip377-ll` as `bip377::ll` and adds `bip377::backend`, the
-  conversions between the codec's wire types and those of a `bitcoin` release.
+- `bip377`: re-exports `bip377-ll` as `bip377::ll` and adds `bip377::backend`: the
+  `Backend` trait, which converts the codec's wire types and carries the
+  coordinator's messages over a consumer's own types, and `RustBitcoin`, its
+  implementation over a `bitcoin` release.
+
+## Coordinator
+
+A coordinator encodes its requests and decodes the answers through a `Backend`,
+whose `Request` and `Response` types carry the messages over its own types. With a
+backend feature, `RustBitcoin` provides them over `bitcoin` types, in
+`bip377::backend::rust_bitcoin::{request, response}`:
+
+```rust
+use bip377::{
+    backend::{
+        Backend,
+        rust_bitcoin::{
+            RustBitcoin,
+            request::{Body, Request, Sign},
+            response::{self, Signed},
+        },
+    },
+    ll::RequestId,
+};
+use bwk_address::backend::rust_bitcoin::Address;
+
+let bytes = RustBitcoin::encode_request(&Request {
+    id: RequestId([0, 1]),
+    body: Body::Sign(Sign {
+        descriptors: vec![],
+        psbt, // bitcoin::Psbt
+        want_kind: None,
+        accept_trimmed: false,
+    }),
+})?;
+
+match RustBitcoin::decode_response(&answer)?.body {
+    response::Body::Signed(Signed::Psbt(psbt)) => { /* a bitcoin::Psbt */ }
+    response::Body::Signed(Signed::Signatures(entries)) => { /* ecdsa::Signature, ... */ }
+    response::Body::Address(Address::Bitcoin(address)) => {
+        /* a bitcoin::Address<NetworkUnchecked> */
+    }
+    response::Body::Error(error) => { /* the signer refused */ }
+    _ => {}
+}
+```
+
+Keys and Info come back with `bip32::Xpub` and `bip32::Fingerprint`, signatures as
+`ecdsa::Signature`, `taproot::Signature`, `XOnlyPublicKey`, `TapLeafHash`,
+`PublicKey` and, for a MuSig2 partial signature, `secp256k1::Scalar`, a signed PSBT
+as `Psbt`. A BIP-380 descriptor goes out as a
+`miniscript::Descriptor<DescriptorPublicKey>` (multipath keys included), written in
+its string form with its checksum, and a BIP-388 key as a `request::KeyInfo` (an
+optional origin and an `Xpub`). Registration, NoncesPrepared, Unregistered and
+Error answers carry no `bitcoin` type and are the codec's own types from
+`bip377::ll::response`.
+
+The MuSig2 public nonces, the BIP-374 DLEQ proofs, the BIP-388 policy template and
+opaque data (aliases, proofs of registration, nonce session IDs) stay raw. A PSBT
+v2 answer fails to convert.
+
+The Address Verification answer is a BIP-321 URI on the wire. `decode_response`
+parses it with bwk-address into `bwk_address::backend::rust_bitcoin::Address`:
+`Address::Bitcoin` from the URI path, an address of any network, or
+`Address::SilentPayment` from the `sp` parameter. A URI it refuses fails with
+`rust_bitcoin::Error::AddressUri`.
+
+`rust_bitcoin::Error` covers the whole backend: bytes that do not decode fail with
+`Error::Decode`, a request the codec refuses with `Error::Encode`, a value that is
+not a valid `bitcoin` type with its own variant (`Error::Psbt`,
+`Error::ExtendedKey`, ...). The signer direction (decoding requests, encoding
+responses) stays on `bip377::ll`.
+
+A consumer can implement `Backend` over its own types instead, with no bitcoin
+feature: it picks the types, writes the conversions to and from the codec's, and
+defines its own `Request` and `Response` with `encode_request` and
+`decode_response` built on `bip377::ll` (`tests/mock_backend.rs` is a complete
+one):
+
+```rust
+use bip377::{backend::Backend, ll};
+
+enum MyBackend {}
+
+impl Backend for MyBackend {
+    type DerivationPath = MyPath;
+    type Xpub = MyXpub;
+    // ... one type per wire value
+    type Request = MyRequest;
+    type Response = MyResponse;
+    type Error = MyError;
+
+    fn encode_request(request: &MyRequest) -> Result<Vec<u8>, MyError> {
+        ll::encode_request(&my_ll_request(request)).map_err(MyError::from)
+    }
+
+    fn decode_response(bytes: &[u8]) -> Result<MyResponse, MyError> {
+        match ll::decode(bytes)? {
+            ll::Message::Response(response) => my_response(response),
+            ll::Message::Request(_) => Err(MyError::NotAResponse),
+        }
+    }
+
+    fn to_ll_path(path: &MyPath) -> ll::types::DerivationPath { /* ... */ }
+    // ... the other to_ll_* and from_ll_* conversions
+}
+```
+
+`encode_request` and `decode_response` exist with the `coordinator` feature.
+
+## Backend
 
 The codec carries keys and paths as raw bytes (`ExtendedKey`, `Fingerprint`,
 `PublicKey`, `SecretKey`, `DerivationPath`). The orphan rule rules out `From` impls
 between them and the `bitcoin` types, so the backend converts through the
-`Backend` trait, implemented by `bip377::backend::rust_bitcoin::RustBitcoin` for
-the selected release:
+`Backend` trait, implemented by `bip377::backend::rust_bitcoin::RustBitcoin` for the selected
+release:
 
 ```rust
-use bip377::{
-    backend::{Backend, rust_bitcoin::RustBitcoin},
-    ll::{Message, decode},
-};
+use bip377::backend::{Backend, rust_bitcoin::RustBitcoin};
 
 let path = RustBitcoin::to_ll_path(&"m/84'/0'/0'".parse()?);
 let xpub = RustBitcoin::from_ll_xpub(&extended_key)?;
-
-match decode(bytes)? {
-    Message::Request(request) => { /* a signer answers it */ }
-    Message::Response(response) => { /* a coordinator consumes it */ }
-}
 ```
 
 Converting to the wire only fails for an uncompressed public key; converting from
-the wire fails on bytes that are not a valid key.
+the wire fails on bytes that are not a valid key, signature, PSBT or address.
 `bip377::bitcoin` re-exports the `bitcoin` release the backend is built on. `bip377`
 is `no_std` and depends on it without default features, so `std` comes from the
 caller's own `bitcoin` dependency.
 
 ## Features
 
-| Feature flag     | Default | Description                                          |
-|------------------|---------|------------------------------------------------------|
-| `coordinator`    | yes     | Encode requests and decode responses                 |
-| `signer`         | yes     | Decode requests and encode responses                 |
-| `bitcoin_0_32`   | -       | Convert to and from `bitcoin` 0.32 (0.32.0 or later) |
-| `bitcoin_latest` | yes     | Alias for `bitcoin_0_32`                             |
-| `serde`          | -       | Forwards `bip377-ll`'s `serde` feature               |
+| Feature flag     | Default | Description                                                              |
+|------------------|---------|--------------------------------------------------------------------------|
+| `coordinator`    | yes     | Encode requests and decode responses                                     |
+| `signer`         | yes     | Decode requests and encode responses                                     |
+| `bitcoin_0_32`   | -       | Convert to and from `bitcoin` 0.32 (0.32.0 or later) and `miniscript` 12 |
+| `bitcoin_latest` | yes     | Alias for `bitcoin_0_32`                                                 |
+| `serde`          | -       | Forwards `bip377-ll`'s `serde` feature                                   |
 
 `coordinator` and `signer` are the roles of [`bip377-ll`](bip377-ll/README.md):
 enable the one the consumer plays, or both. At least one is required. The

@@ -55,7 +55,10 @@ fn main() {
         fingerprint
     );
     assert_eq!(RustBitcoin::from_ll_path(&keys.spend_path), spend_path);
-    assert_eq!(RustBitcoin::from_ll_secret_key(&scan), Ok(scan_key));
+    assert_eq!(
+        RustBitcoin::from_ll_secret_key(&scan).expect("valid secret key"),
+        scan_key
+    );
 
     let response = Response {
         id: ID,
@@ -83,7 +86,10 @@ fn main() {
     else {
         panic!("not a single ecdsa entry");
     };
-    assert_eq!(RustBitcoin::from_ll_public_key(key), Ok(public_key));
+    assert_eq!(
+        RustBitcoin::from_ll_public_key(key).expect("valid public key"),
+        public_key
+    );
 
     let response = Response {
         id: ID,
@@ -112,7 +118,7 @@ fn main() {
     let [public] = keys.keys.as_slice() else {
         panic!("not a single key");
     };
-    assert_eq!(RustBitcoin::from_ll_xpub(public), Ok(xpub));
+    assert_eq!(RustBitcoin::from_ll_xpub(public).expect("valid xpub"), xpub);
     assert_eq!(
         RustBitcoin::from_ll_fingerprint(&keys.fingerprint),
         fingerprint
