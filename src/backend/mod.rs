@@ -7,8 +7,10 @@ use crate::ll::types::{DerivationPath, ExtendedKey, Fingerprint, PublicKey, Secr
 #[cfg(feature = "bitcoin_0_32")]
 pub use bitcoin_0_32 as bitcoin;
 
+#[cfg(feature = "bitcoin_0_32")]
 pub mod rust_bitcoin;
 
+#[cfg(feature = "bitcoin_0_32")]
 pub type Active = crate::backend::rust_bitcoin::RustBitcoin;
 
 pub trait Backend {

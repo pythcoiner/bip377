@@ -9,7 +9,6 @@
 
 pub use bip377_ll as ll;
 
-#[cfg(feature = "bitcoin_0_32")]
 pub mod backend;
 #[cfg(feature = "bitcoin_0_32")]
 pub use crate::backend::bitcoin;

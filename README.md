@@ -55,9 +55,11 @@ caller's own `bitcoin` dependency.
 | `serde`          | -       | Forwards `bip377-ll`'s `serde` feature               |
 
 `coordinator` and `signer` are the roles of [`bip377-ll`](bip377-ll/README.md):
-enable the one the consumer plays, or both. At least one is required. Without a
-backend feature, `bip377` is only the `bip377::ll` re-export. A new `bitcoin` major
-release gets its own feature.
+enable the one the consumer plays, or both. At least one is required. The
+`Backend` trait is always available, so a consumer can implement its own backend;
+the `bitcoin_*` features provide the rust-bitcoin one. Without one, `bip377` is the
+`bip377::ll` re-export and the `Backend` trait. A new `bitcoin` major release gets
+its own feature.
 
 [`examples/`](examples) holds one downstream crate pinned at `bitcoin` 0.32.0, the
 oldest supported release, and one at 0.32.5, the release Liana builds with. Both
